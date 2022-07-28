@@ -2,11 +2,10 @@
 import logging
 from typing import Literal, Type, Union
 
-import arrow
-import numpy as np
 import pyvisa
 
 _logger = logging.getLogger()
+
 
 class Instrument:
     # FIXME Potrei sostituire tutti i self._instrument.write con self.write_command. Idem per query e read # noqa: E501

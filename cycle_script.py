@@ -1,11 +1,9 @@
-import logging
 import time
 from types import NoneType
 from typing import Iterable
 
 import pandas as pd
 
-from api.Chamber import CHAMBER
 from Chamber import ACS_Discovery1200
 from Connection import Charger
 from other_SCPI import CHROMA, ITECH
@@ -17,6 +15,7 @@ CHAMBER_ADDRESS = "COM8"
 ARM_XL_ADDRESS = {"host": "192.168.0.101",
                   "user": "root",
                   "pwd": "ABB"}
+
 
 def get_data():
     df = pd.read_excel("command.xlsx")
@@ -88,6 +87,7 @@ def parse_command(command: str, args: str):
 
 # CHARGER command
 # "command on the SSH client without ./" "additional param"
+
 
 itech = ITECH()
 itech.connect(ITECH_ADDRESS)

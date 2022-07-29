@@ -12,6 +12,7 @@ from Chamber import ACS_Discovery1200
 from Connection import Charger
 from other_SCPI import CHROMA, ITECH
 
+# TODO wait function, power supply
 # CONNECTION STRING
 ITECH_ADDRESS = "TCPIP0::192.168.0.102::inst0::INSTR"
 CHROMA_ADDRESS = "TCPIP0::192.168.0.101::2101::SOCKET"

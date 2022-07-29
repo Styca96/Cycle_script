@@ -1,8 +1,12 @@
 import time
+import tkinter as tk
+from os import popen
+from tkinter import ttk
 from types import NoneType
 from typing import Iterable
 
 import pandas as pd
+import pyvisa
 
 from Chamber import ACS_Discovery1200
 from Connection import Charger
@@ -15,6 +19,61 @@ CHAMBER_ADDRESS = "COM8"
 ARM_XL_ADDRESS = {"host": "192.168.0.101",
                   "user": "root",
                   "pwd": "ABB"}
+
+
+rm = pyvisa.ResourceManager()
+
+
+class Select_GUI(tk.Tk):
+    def __init__(self, title: str, mode="SCPI"):
+        super().__init__()
+        self.title(title + " ADDRESS")
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.mode = mode
+        self.val = tk.StringVar(value=title + " Address")
+        self.cmb = ttk.Combobox(self,
+                                values=self.refresh_instr(rm),
+                                textvariable=self.val)
+        self.cmb.pack()
+        self.refresh_btn = tk.Button(self,
+                                     text="Refresh",
+                                     command=lambda: self.cmb.config(
+                                         values=self.refresh_instr(rm)
+                                         )
+                                     )
+        self.refresh_btn.pack()
+        self.mainloop()
+
+    def refresh_instr(self, rm):
+        """Riaggiorna la lista strumenti VISA\n
+        Returns:
+            Tuple[str,...]: lista strumenti
+        """
+        if self.mode == "SCPI":
+            instrument_list = rm.list_resources()
+        elif self.mode == "COM":
+            import serial.tools.list_ports
+
+            com_list = [comport.device
+                        for comport in serial.tools.list_ports.comports()]
+            instrument_list = com_list
+        elif self.mode == "IP":
+            result = popen("arp -a")
+            instrument_list = [j for i in result.read().splitlines()
+                               for j in (i.split(" ")) if j != "" and "." in j]
+        elif self.mode == "str":
+            instrument_list = []
+
+        return instrument_list
+
+    def on_closing(self):
+        self.destroy()
+
+
+def show_options(name: str, mode: str):
+    root = Select_GUI(name, mode)
+    # root.mainloop()
+    return root.val.get()
 
 
 def get_data():
@@ -61,6 +120,7 @@ def parse_command(command: str, args: str):
     cmd = base_cmd + command + " " + args
     return cmd
 
+
 # CHAMBER command
 # 'start_temp' no param
 # 'stop_temp' no param
@@ -88,13 +148,20 @@ def parse_command(command: str, args: str):
 # CHARGER command
 # "command on the SSH client without ./" "additional param"
 
-
 itech = ITECH()
-itech.connect(ITECH_ADDRESS)
 chroma = CHROMA()
-chroma.connect(CHROMA_ADDRESS)
-chamber = ACS_Discovery1200(CHAMBER_ADDRESS)
-arm_xl = Charger(**ARM_XL_ADDRESS)
+# ----- default value in script
+# itech.connect(ITECH_ADDRESS)
+# chroma.connect(CHROMA_ADDRESS)
+# chamber = ACS_Discovery1200(CHAMBER_ADDRESS)
+# arm_xl = Charger(**ARM_XL_ADDRESS)
+# ----- select value
+itech.connect(show_options("ITECH", "SCPI"))
+chroma.connect(show_options("CHROMA", "SCPI"))
+chamber = ACS_Discovery1200(show_options("CHAMBER", "COM"))
+arm_xl = Charger(host=show_options("ARM-XL", "IP"),
+                 user=show_options("ARM-XL user", "str"),
+                 pwd=show_options("ARM-XL pwd", "str"))
 instruments = {
     "itech": itech,
     "chroma": chroma,

@@ -13,7 +13,7 @@ from Chamber import ACS_Discovery1200
 from Connection import Charger
 from other_SCPI import CHROMA, ITECH
 
-# TODO wait function, power supply
+default = False  # if True usa CONNECTION STRING, else open GUI for selection
 # CONNECTION STRING
 ITECH_ADDRESS = "TCPIP0::192.168.0.102::30000::SOCKET"
 CHROMA_ADDRESS = "TCPIP0::192.168.0.101::2101::SOCKET"
@@ -159,41 +159,36 @@ def parse_command(command: str, args: str):
 # CHARGER command
 # "command on the SSH client without ./" "additional param"
 
-# ----- default value in script
-# itech = ITECH()
-# chroma = CHROMA()
-# itech.connect(ITECH_ADDRESS)
-# chroma.connect(CHROMA_ADDRESS)
-# chamber = ACS_Discovery1200(CHAMBER_ADDRESS)
-# arm_xl = Charger(**ARM_XL_ADDRESS)
-# ----- select value
+# ----- Connecting ----- 
 # ITECH
-address = show_options("ITECH", "SCPI")
+address = show_options("ITECH", "SCPI") if default is False else ITECH_ADDRESS
 if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
     itech = ITECH
     itech.connect(address)
 else: 
     itech = None
 # CHROMA
-address = show_options("CHROMA", "SCPI")
+address = show_options("CHROMA", "SCPI") if default is False else CHROMA_ADDRESS
 if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
     chroma = CHROMA()
     chroma.connect(address)
 else: 
     chroma = None
 # CHAMBER
-com_port = show_options("CHAMBER", "COM")
+com_port = show_options("CHAMBER", "COM") if default is False else CHAMBER_ADDRESS
 if com_port.startswith(("COM", "tty")):
     chamber = ACS_Discovery1200(com_port)
 else:
     chamber = None
 # ARM-XL
-host = show_options("ARM-XL", "IP")
+host = show_options("ARM-XL", "IP") if default is False else ARM_XL_ADDRESS["host"]
 try:
     socket.inet_aton(host)
+    user = show_options("ARM-XL user", "str") if default is False else ARM_XL_ADDRESS["user"]
+    pwd = show_options("ARM-XL pwd", "str") if default is False else ARM_XL_ADDRESS["pwd"]
     arm_xl = Charger(host=host,
-                     user=show_options("ARM-XL user", "str"),
-                     pwd=show_options("ARM-XL pwd", "str"))
+                     user=user,
+                     pwd=pwd)
 except socket.error:
     arm_xl = None
 

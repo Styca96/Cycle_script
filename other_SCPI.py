@@ -249,7 +249,7 @@ class ITECH(Instrument):
         return "read_terminator:\t \\n\nwrite_terminator:\t \\n"
 
     # ----- Configuration function ----- #
-    def ResetConfig(self):  # FIXME
+    def ResetConfig(self):
         """Reset e configura strumento"""
         self.set_cls()
         self.set_rst()
@@ -258,7 +258,7 @@ class ITECH(Instrument):
 
         self.config()
 
-    def config(self):      # FIXME
+    def config(self):
         """Configurazione setup e measurement"""
         self.set_setup(self.setup)
 
@@ -470,7 +470,7 @@ class CHROMA(Instrument):
                "europe_grip", "usa_grid"]
 
 
-class HP6032A(Instrument):  # TODO try this instrument
+class HP6032A(Instrument):  # VERIFY try this instrument
 
     def __init__(self, setup: dict = {}, dataconfig: dict = {}) -> None:
         super().__init__(self)
@@ -520,13 +520,13 @@ class HP6032A(Instrument):  # TODO try this instrument
     # ----- function HPPowerSupply ----- #
     def current(self, value: float | None = None):
         if value is None:
-            return(self._instrument.query(":CURR?"))
+            return self._instrument.query(":CURR?")
         else:
             self._instrument.write(f":CURR {value}")
 
     def voltage(self, value: float | None = None):
         if value is None:
-            return(self._instrument.query(":VOLT?"))
+            return self._instrument.query(":VOLT?")
         else:
             self._instrument.write(f":VOLT {value}")
 
@@ -537,7 +537,7 @@ class HP6032A(Instrument):  # TODO try this instrument
             else:
                 state = 0
         self._instrument.write(f"OUTPUT {int(state)}")
-        
+
     # ----- predefine HPPowerSupply ----- #
     # ----- status and reading ----- #
     def read_measure(self, mode: Literal["current", "voltage"]):
@@ -549,7 +549,7 @@ class HP6032A(Instrument):  # TODO try this instrument
             raise KeyError("misura non disponibile\nSeleziona tra"
                            " 'current' o 'voltage'")
     # ----- all COMMAND -----#
-    COMMAND = [] # TODO add all useful command
+    COMMAND = []  # TODO add all useful command
 
 
 instrument: dict[str, Union[Type[ITECH], Type[CHROMA], Type[HP6032A]]] = {

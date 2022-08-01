@@ -14,10 +14,10 @@ from other_SCPI import CHROMA, ITECH
 
 # TODO wait function, power supply
 # CONNECTION STRING
-ITECH_ADDRESS = "TCPIP0::192.168.0.102::inst0::INSTR"
+ITECH_ADDRESS = "TCPIP0::192.168.0.102::30000::SOCKET"
 CHROMA_ADDRESS = "TCPIP0::192.168.0.101::2101::SOCKET"
-CHAMBER_ADDRESS = "COM8"
-ARM_XL_ADDRESS = {"host": "192.168.0.101",
+CHAMBER_ADDRESS = "COM3"
+ARM_XL_ADDRESS = {"host": "192.168.0.103",
                   "user": "root",
                   "pwd": "ABB"}
 
@@ -117,8 +117,8 @@ def arg_parse(arg_str):
 def parse_command(command: str, args: str):
     if not isinstance(args, str):
         args = str(args)
-    base_cmd = "./"
-    cmd = base_cmd + command + " " + args
+    base_cmd = "nohup ./"
+    cmd = base_cmd + command + " " + args + " & >/dev/null\n"
     return cmd
 
 
@@ -176,7 +176,18 @@ for i in range(lenght):
     now = time.time()
     rel_time = next(list_of_time)
     instr = instruments.get(next(list_of_instr))
-    if instr != arm_xl:  # not arm_xl instrument
+    if instr == arm_xl:
+        command = next(list_of_command)
+        args = next(list_of_args)
+        cmd = parse_command(command, args)
+        print(instr, cmd)
+        instr: Charger
+        instr._shell.send(cmd)
+    elif instr == "sleep":
+        print("Wait time")
+        _ = next(list_of_command)
+        _ = next(list_of_args)
+    elif instr != arm_xl:  # not arm_xl instrument
         command = getattr(instr, next(list_of_command))
         args = arg_parse(next(list_of_args))
         print(instr, command, args)
@@ -186,11 +197,10 @@ for i in range(lenght):
             command(args)
         else:
             command(*args)
-    else:
-        command = next(list_of_command)
-        args = next(list_of_args)
-        cmd = parse_command(command, args)
-        instr: Charger
-        instr._client.exec_command(cmd)
+    else: 
+        print("No Instrument found\nPass to next command without wait")
+        _ = next(list_of_command)
+        _ = next(list_of_args)
+        continue
     while time.time() - now < rel_time:
         continue

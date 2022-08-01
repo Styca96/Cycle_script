@@ -1,3 +1,4 @@
+import socket
 import time
 import tkinter as tk
 from os import popen
@@ -78,7 +79,16 @@ def show_options(name: str, mode: str):
 
 
 def get_data():
-    df = pd.read_excel("command.xlsx")
+    df = pd.read_excel("command.xlsx",
+                       engine="openpyxl",
+                       sheet_name=0,
+                       header=0,
+                       dtype={"AbsTime": int,
+                              "Time": int,
+                              "Instrument": str,
+                              "Command": str,
+                              "Argument": object}
+                       )
     _time = iter(df.Time)
     instr = iter(df.Instrument)
     command = iter(df.Command)
@@ -149,25 +159,50 @@ def parse_command(command: str, args: str):
 # CHARGER command
 # "command on the SSH client without ./" "additional param"
 
-itech = ITECH()
-chroma = CHROMA()
 # ----- default value in script
+# itech = ITECH()
+# chroma = CHROMA()
 # itech.connect(ITECH_ADDRESS)
 # chroma.connect(CHROMA_ADDRESS)
 # chamber = ACS_Discovery1200(CHAMBER_ADDRESS)
 # arm_xl = Charger(**ARM_XL_ADDRESS)
 # ----- select value
-itech.connect(show_options("ITECH", "SCPI"))
-chroma.connect(show_options("CHROMA", "SCPI"))
-chamber = ACS_Discovery1200(show_options("CHAMBER", "COM"))
-arm_xl = Charger(host=show_options("ARM-XL", "IP"),
-                 user=show_options("ARM-XL user", "str"),
-                 pwd=show_options("ARM-XL pwd", "str"))
+# ITECH
+address = show_options("ITECH", "SCPI")
+if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
+    itech = ITECH
+    itech.connect(address)
+else: 
+    itech = None
+# CHROMA
+address = show_options("CHROMA", "SCPI")
+if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
+    chroma = CHROMA()
+    chroma.connect(address)
+else: 
+    chroma = None
+# CHAMBER
+com_port = show_options("CHAMBER", "COM")
+if com_port.startswith(("COM", "tty")):
+    chamber = ACS_Discovery1200(com_port)
+else:
+    chamber = None
+# ARM-XL
+host = show_options("ARM-XL", "IP")
+try:
+    socket.inet_aton(host)
+    arm_xl = Charger(host=host,
+                     user=show_options("ARM-XL user", "str"),
+                     pwd=show_options("ARM-XL pwd", "str"))
+except socket.error:
+    arm_xl = None
+
 instruments = {
     "itech": itech,
     "chroma": chroma,
     "chamber": chamber,
-    "arm_xl": arm_xl
+    "arm_xl": arm_xl,
+    "sleep": "sleep",
     }
 
 lenght, list_of_time, list_of_instr, list_of_command, list_of_args = get_data()
@@ -183,10 +218,12 @@ for i in range(lenght):
         print(instr, cmd)
         instr: Charger
         instr._shell.send(cmd)
+    # if instr == "sleep":
     elif instr == "sleep":
-        print("Wait time")
+        print(f"Wait {rel_time} seconds ")
         _ = next(list_of_command)
         _ = next(list_of_args)
+    # elif instr != "sleep":  # not arm_xl instrument
     elif instr != arm_xl:  # not arm_xl instrument
         command = getattr(instr, next(list_of_command))
         args = arg_parse(next(list_of_args))
@@ -197,7 +234,7 @@ for i in range(lenght):
             command(args)
         else:
             command(*args)
-    else: 
+    else:
         print("No Instrument found\nPass to next command without wait")
         _ = next(list_of_command)
         _ = next(list_of_args)

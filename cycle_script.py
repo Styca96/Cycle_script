@@ -159,20 +159,20 @@ def parse_command(command: str, args: str):
 # CHARGER command
 # "command on the SSH client without ./" "additional param"
 
-# ----- Connecting ----- 
+# ----- Connecting -----
 # ITECH
 address = show_options("ITECH", "SCPI") if default is False else ITECH_ADDRESS
 if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
     itech = ITECH
     itech.connect(address)
-else: 
+else:
     itech = None
 # CHROMA
 address = show_options("CHROMA", "SCPI") if default is False else CHROMA_ADDRESS
 if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
     chroma = CHROMA()
     chroma.connect(address)
-else: 
+else:
     chroma = None
 # CHAMBER
 com_port = show_options("CHAMBER", "COM") if default is False else CHAMBER_ADDRESS

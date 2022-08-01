@@ -13,7 +13,8 @@ class Charger:
     """Classe connessione charger"""
 
     def __init__(self, host: str, user: str = "root", pwd: str = "abb") -> None:    # noqa: E501
-        """Inizializza il client SSH e si connette tramite l'host, l'user e la pwd\n
+        """Inizializza il client SSH e si connette tramite l'host, l'user e la
+        pwd\n
         Args:
             host (str): indirizzo host
             user (str, optional): username. Defaults to 'root'.
@@ -155,7 +156,8 @@ class Charger:
         self._sftp.remove(filename)
 
     def get_file(self, remotepath: str, localpath: str):
-        """Crea copia locale (localpath) del file del server remoto (remotepath)\n
+        """Crea copia locale (localpath) del file del server remoto
+        (remotepath)\n
         Args:
             remotepath (str): path remota del file da copiare
             localpath (str): path locale di destinazione del file

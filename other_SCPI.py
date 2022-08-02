@@ -1,4 +1,5 @@
 
+import datetime
 import logging
 from typing import Literal, Type, Union
 
@@ -556,6 +557,27 @@ class MSO58B(Instrument):
     manufactor = "Tektronik"
     measure = None  # TODO measure options
     # SOCKET port is 4000
+        
+    # ACTONEVent:MASKFail:ACTION:SAVEIMAGe:STATE Save a screen capture when a mask test fails.
+    # ACTONEVent:MASKHit:ACTION:SAVEIMAGe:STATE Saves a screen capture when a mask hit occurs.
+    
+    # ACQuire:STATE Starts, stops, or returns acquisition state.
+    
+    # SAVEONEVent:FILEDest Sets or queries the file path.
+    # SAVEONEVent:FILEName Sets or queries the file name without the extension.
+    # SAVEONEVent:IMAGe:FILEFormat Sets or returns the file extension (png, jpg, bmp).
+    
+    # FILESystem:READFile Copies the named file to the interface.
+    
+    # SAVe:IMAGe Saves a capture of the screen contents to the specified image file.
+    
+    # SAVEON:FILE:DEST Sets or queries the location where files are saved.
+    # SAVEON:FILE:NAME Sets or queries the file name to use when SAVEON:TRIGer is ON.
+    # SAVEON:IMAGe:FILEFormat Sets or queries the file format to be used for saved image files.
+    # SAVEON:IMAGe Sets or queries whether to save a screen capture when a trigger occurs.
+    # SAVEON:TRIGger Sets or queries whether to save a file when a trigger occurs.
+    
+    # *OPC Generates the operation complete message in the standard event status register when all pending operations are finished Or returns “1” when all current operations are finished.
     
     def __init__(self, setup: dict = {}, dataconfig: dict = {}):
         super().__init__()
@@ -601,8 +623,22 @@ class MSO58B(Instrument):
         self.set_setup(self.setup)
         # self.set_data_configuration(self.dataconfig)
 
-    # ----- function HPPowerSupply ----- #
-    # ----- predefine HPPowerSupply ----- #
+    # ----- function MSO58B ----- #
+    # ----- predefine MSO58B ----- #
+    def save_screen(self, filepath: str = "default"):
+        if filepath == "default":
+            dt = datetime.now()
+            filepath = dt.strftime("MSO5B_%Y%m%d_%H%M%S.png")
+        self.write_command('SAVE:IMAGe \"C:/Temp.png\"')
+        self.query_command("*OPC?")
+        self.write_command('FILESystem:READFile \"C:/Temp.png\"')
+        imgData = self._instrument.read_raw(1024*1024)
+        
+        with open(filepath, "wb") as file:
+            file.write(imgData)
+            
+        self.write_command('FILESystem:DELEte \"C:/Temp.png\"')
+            
     # ----- status and reading ----- #
     # ----- all COMMAND -----#
     COMMAND = []  # TODO all useful methods

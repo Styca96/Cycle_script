@@ -249,7 +249,7 @@ class ITECH(Instrument):
         return "read_terminator:\t \\n\nwrite_terminator:\t \\n"
 
     # ----- Configuration function ----- #
-    def ResetConfig(self):  # FIXME
+    def ResetConfig(self):
         """Reset e configura strumento"""
         self.set_cls()
         self.set_rst()
@@ -258,7 +258,7 @@ class ITECH(Instrument):
 
         self.config()
 
-    def config(self):      # FIXME
+    def config(self):
         """Configurazione setup e measurement"""
         self.set_setup(self.setup)
 
@@ -385,7 +385,7 @@ class CHROMA(Instrument):
         return "read_terminator:\t \\n\nwrite_terminator:\t \\n"
 
     # ----- Configuration function ----- #
-    def ResetConfig(self):  # FIXME
+    def ResetConfig(self):
         """Reset e configura strumento"""
         self.set_cls()
         self.set_rst()
@@ -394,7 +394,7 @@ class CHROMA(Instrument):
 
         self.config()
 
-    def config(self):  # FIXME
+    def config(self):
         """Configurazione setup e measurement"""
         self._instrument.write("INSTrument:COUPle ALL")  # setup for all phase
         self.set_setup(self.setup)
@@ -470,6 +470,87 @@ class CHROMA(Instrument):
                "europe_grip", "usa_grid"]
 
 
-instrument: dict[str, Union[Type[ITECH], Type[CHROMA]]] = {
-    "ITECH": ITECH, "CHROMA": CHROMA
+class HP6032A(Instrument):  # VERIFY try this instrument
+
+    def __init__(self, setup: dict = {}, dataconfig: dict = {}) -> None:
+        super().__init__()
+        self._setup = setup
+        self._dataconfig = dataconfig
+
+    @property
+    def setup(self):
+        return self._setup_option
+
+    @setup.setter
+    def setup(self, value: dict):
+        assert isinstance(value, dict)
+        self._setup_option = value
+
+    @property
+    def dataconfig(self):
+        return self._dataconfig
+
+    @dataconfig.setter
+    def dataconfig(self, value: dict):
+        assert isinstance(value, dict)
+        self._dataconfig = value
+
+    def set_terminator(self) -> str:
+        """Setta carattere terminatore sia in scrittura che in lettura"""
+        self._instrument.read_termination = "\n"
+        self._instrument.write_termination = "\n"
+        return "read_terminator:\t \\n\nwrite_terminator:\t \\n"
+
+    # ----- Configuration function ----- #
+    def ResetConfig(self):
+        """Reset e configura strumento"""
+        self.set_cls()
+        self.set_rst()
+        self.get_idn()
+        self.set_terminator()
+
+        self.config()
+
+    def config(self):
+        """Configurazione setup e measurement"""
+        self.set_setup(self.setup)
+        # self.set_data_configuration(self.dataconfig)
+
+    # ----- function HPPowerSupply ----- #
+    def set_current(self, value: float | None = None):
+        if value is None:
+            return self._instrument.query(":CURR?")
+        else:
+            self._instrument.write(f":CURR {value}")
+
+    def set_voltage(self, value: float | None = None):
+        if value is None:
+            return self._instrument.query(":VOLT?")
+        else:
+            self._instrument.write(f":VOLT {value}")
+
+    def set_output(self, state: bool | Literal["on", "off"]):
+        if isinstance(state, str):
+            if state in ("on", "ON"):
+                state = 1
+            else:
+                state = 0
+        self._instrument.write(f"OUTPUT {int(state)}")
+
+    # ----- predefine HPPowerSupply ----- #
+    # ----- status and reading ----- #
+    def read_measure(self, mode: Literal["current", "voltage"]):
+        if mode == "current":
+            return self._instrument.query("MEAS:CURR?")
+        elif mode == "voltage":
+            return self._instrument.query("MEAS:VOLT?")
+        else:
+            raise KeyError("misura non disponibile\nSeleziona tra"
+                           " 'current' o 'voltage'")
+    # ----- all COMMAND -----#
+    COMMAND = ["set_output", "set_current", "set_voltage"]  # TODO add all useful command
+
+
+instrument: dict[str, Union[Type[ITECH], Type[CHROMA], Type[HP6032A]]] = {
+    "ITECH": ITECH, "CHROMA": CHROMA, "HP6032A": HP6032A
     }

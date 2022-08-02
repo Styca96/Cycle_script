@@ -1,24 +1,96 @@
+import socket
 import time
+import tkinter as tk
+from os import popen
+from tkinter import ttk
 from types import NoneType
 from typing import Iterable
 
 import pandas as pd
+import pyvisa
 
 from Chamber import ACS_Discovery1200
 from Connection import Charger
-from other_SCPI import CHROMA, ITECH
+from other_SCPI import CHROMA, HP6032A, ITECH
 
+default = False  # if True usa CONNECTION STRING, else open GUI for selection
 # CONNECTION STRING
 ITECH_ADDRESS = "TCPIP0::192.168.0.102::30000::SOCKET"
 CHROMA_ADDRESS = "TCPIP0::192.168.0.101::2101::SOCKET"
 CHAMBER_ADDRESS = "COM3"
+HP6032A_ADDRESS = "GPIB::5::INSTR"
 ARM_XL_ADDRESS = {"host": "192.168.0.103",
                   "user": "root",
                   "pwd": "ABB"}
 
 
+rm = pyvisa.ResourceManager()
+
+
+class Select_GUI(tk.Tk):
+    def __init__(self, title: str, mode="SCPI"):
+        super().__init__()
+        self.title(title + " ADDRESS")
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.mode = mode
+        self.val = tk.StringVar(value=title + " Address")
+        self.cmb = ttk.Combobox(self,
+                                width=80,
+                                values=self.refresh_instr(rm),
+                                textvariable=self.val)
+        self.cmb.pack()
+        self.refresh_btn = tk.Button(self,
+                                     text="Refresh",
+                                     command=lambda: self.cmb.config(
+                                         values=self.refresh_instr(rm)
+                                         )
+                                     )
+        self.refresh_btn.pack()
+        self.mainloop()
+
+    def refresh_instr(self, rm):
+        """Riaggiorna la lista strumenti VISA\n
+        Returns:
+            Tuple[str,...]: lista strumenti
+        """
+        if self.mode == "SCPI":
+            instrument_list = rm.list_resources()
+        elif self.mode == "COM":
+            import serial.tools.list_ports
+
+            com_list = [comport.device
+                        for comport in serial.tools.list_ports.comports()]
+            instrument_list = com_list
+        elif self.mode == "IP":
+            result = popen("arp -a")
+            instrument_list = [j for i in result.read().splitlines()
+                               for j in (i.split(" ")) if j != "" and "." in j]
+        elif self.mode == "str":
+            instrument_list = []
+
+        return instrument_list
+
+    def on_closing(self):
+        self.destroy()
+
+
+def show_options(name: str, mode: str):
+    root = Select_GUI(name, mode)
+    # root.mainloop()
+    return root.val.get()
+
+
 def get_data():
-    df = pd.read_excel("command.xlsx")
+    df = pd.read_excel("command.xlsx",
+                       engine="openpyxl",
+                       sheet_name=0,
+                       header=0,
+                       dtype={"AbsTime": int,
+                              "Time": int,
+                              "Instrument": str,
+                              "Command": str,
+                              "Argument": object}
+                       )
     _time = iter(df.Time)
     instr = iter(df.Instrument)
     command = iter(df.Command)
@@ -61,6 +133,7 @@ def parse_command(command: str, args: str):
     cmd = base_cmd + command + " " + args + " & >/dev/null\n"
     return cmd
 
+
 # CHAMBER command
 # 'start_temp' no param
 # 'stop_temp' no param
@@ -88,18 +161,57 @@ def parse_command(command: str, args: str):
 # CHARGER command
 # "command on the SSH client without ./" "additional param"
 
+# HP6032A
+# "set_current" <value>
+# "set_voltage" <value>
+# "set_output" ["on" | "off"]
+# ----- Connecting -----
+# ITECH
+address = show_options("ITECH", "SCPI") if default is False else ITECH_ADDRESS
+if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
+    itech = ITECH
+    itech.connect(address)
+else:
+    itech = None
+# CHROMA
+address = show_options("CHROMA", "SCPI") if default is False else CHROMA_ADDRESS
+if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
+    chroma = CHROMA()
+    chroma.connect(address)
+else:
+    chroma = None
+# HP6032A
+address = show_options("HP6032A", "SCPI") if default is False else HP6032A_ADDRESS
+if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
+    power_supply = HP6032A()
+    power_supply.connect(address)
+else:
+    power_supply = None
+# CHAMBER
+com_port = show_options("CHAMBER", "COM") if default is False else CHAMBER_ADDRESS
+if com_port.startswith(("COM", "tty")):
+    chamber = ACS_Discovery1200(com_port)
+else:
+    chamber = None
+# ARM-XL
+host = show_options("ARM-XL", "IP") if default is False else ARM_XL_ADDRESS["host"]
+try:
+    socket.inet_aton(host)
+    user = show_options("ARM-XL user", "str") if default is False else ARM_XL_ADDRESS["user"]
+    pwd = show_options("ARM-XL pwd", "str") if default is False else ARM_XL_ADDRESS["pwd"]
+    arm_xl = Charger(host=host,
+                     user=user,
+                     pwd=pwd)
+except socket.error:
+    arm_xl = None
 
-itech = ITECH()
-itech.connect(ITECH_ADDRESS)
-chroma = CHROMA()
-chroma.connect(CHROMA_ADDRESS)
-chamber = ACS_Discovery1200(CHAMBER_ADDRESS)
-arm_xl = Charger(**ARM_XL_ADDRESS)
 instruments = {
     "itech": itech,
     "chroma": chroma,
+    "power_supply": power_supply,
     "chamber": chamber,
-    "arm_xl": arm_xl
+    "arm_xl": arm_xl,
+    "sleep": "sleep",
     }
 
 lenght, list_of_time, list_of_instr, list_of_command, list_of_args = get_data()
@@ -108,7 +220,20 @@ for i in range(lenght):
     now = time.time()
     rel_time = next(list_of_time)
     instr = instruments.get(next(list_of_instr))
-    if instr != arm_xl:  # not arm_xl instrument
+    if instr == arm_xl:
+        command = next(list_of_command)
+        args = next(list_of_args)
+        cmd = parse_command(command, args)
+        print(instr, cmd)
+        instr: Charger
+        instr._shell.send(cmd)
+    # if instr == "sleep":
+    elif instr == "sleep":
+        print(f"Wait {rel_time} seconds ")
+        _ = next(list_of_command)
+        _ = next(list_of_args)
+    # elif instr != "sleep":  # not arm_xl instrument
+    elif instr != arm_xl:  # not arm_xl instrument
         command = getattr(instr, next(list_of_command))
         args = arg_parse(next(list_of_args))
         print(instr, command, args)
@@ -119,11 +244,9 @@ for i in range(lenght):
         else:
             command(*args)
     else:
-        command = next(list_of_command)
-        args = next(list_of_args)
-        cmd = parse_command(command, args)
-        print(instr, cmd)
-        instr: Charger
-        instr._shell.send(cmd)
+        print("No Instrument found\nPass to next command without wait")
+        _ = next(list_of_command)
+        _ = next(list_of_args)
+        continue
     while time.time() - now < rel_time:
         continue

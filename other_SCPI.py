@@ -548,9 +548,72 @@ class HP6032A(Instrument):  # VERIFY try this instrument
             raise KeyError("misura non disponibile\nSeleziona tra"
                            " 'current' o 'voltage'")
     # ----- all COMMAND -----#
-    COMMAND = ["set_output", "set_current", "set_voltage"]  # TODO add all useful command
+    COMMAND = ["set_output", "set_current", "set_voltage"]
 
 
-instrument: dict[str, Union[Type[ITECH], Type[CHROMA], Type[HP6032A]]] = {
-    "ITECH": ITECH, "CHROMA": CHROMA, "HP6032A": HP6032A
-    }
+class MSO58B(Instrument):
+    typeOfInstrument = "Oscilloscope"
+    manufactor = "Tektronik"
+    measure = None  # TODO measure options
+    # SOCKET port is 4000
+    
+    def __init__(self, setup: dict = {}, dataconfig: dict = {}):
+        super().__init__()
+        self._setup = setup
+        self._dataconfig = dataconfig
+
+    @property
+    def setup(self):
+        return self._setup_option
+
+    @setup.setter
+    def setup(self, value: dict):
+        assert isinstance(value, dict)
+        self._setup_option = value
+
+    @property
+    def dataconfig(self):
+        return self._dataconfig
+
+    @dataconfig.setter
+    def dataconfig(self, value: dict):
+        assert isinstance(value, dict)
+        self._dataconfig = value
+
+    def set_terminator(self) -> str:  # VERIFY terminator of instrument
+        """Setta carattere terminatore sia in scrittura che in lettura"""
+        self._instrument.read_termination = "\n"
+        self._instrument.write_termination = "\n"
+        return "read_terminator:\t \\n\nwrite_terminator:\t \\n"
+
+    # ----- Configuration function ----- #
+    def ResetConfig(self):
+        """Reset e configura strumento"""
+        self.set_cls()
+        self.set_rst()
+        self.get_idn()
+        self.set_terminator()
+
+        self.config()
+
+    def config(self):  # FIXME if add some default command
+        """Configurazione setup e measurement"""
+        self.set_setup(self.setup)
+        # self.set_data_configuration(self.dataconfig)
+
+    # ----- function HPPowerSupply ----- #
+    # ----- predefine HPPowerSupply ----- #
+    # ----- status and reading ----- #
+    # ----- all COMMAND -----#
+    COMMAND = []  # TODO all useful methods
+
+
+instrument: dict[str, Union[Type[ITECH],
+                            Type[CHROMA],
+                            Type[HP6032A],
+                            Type[MSO58B]]] = {
+                                                "ITECH": ITECH,
+                                                "CHROMA": CHROMA,
+                                                "HP6032A": HP6032A,
+                                                "MSO58B": MSO58B
+                                                }

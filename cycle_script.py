@@ -183,10 +183,10 @@ else:
 # HP6032A
 address = show_options("HP6032A", "SCPI") if default is False else HP6032A_ADDRESS
 if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
-    power_supply = HP6032A()
-    power_supply.connect(address)
+    hp6032a = HP6032A()
+    hp6032a.connect(address)
 else:
-    power_supply = None
+    hp6032a = None
 # CHAMBER
 com_port = show_options("CHAMBER", "COM") if default is False else CHAMBER_ADDRESS
 if com_port.startswith(("COM", "tty")):
@@ -206,11 +206,11 @@ except socket.error:
     arm_xl = None
 
 instruments = {
-    "itech": itech,
-    "chroma": chroma,
-    "power_supply": power_supply,
-    "chamber": chamber,
-    "arm_xl": arm_xl,
+    "DC_Source": itech,
+    "AC_Source": chroma,
+    "PowerSupply": hp6032a,
+    "CLIM_chamber": chamber,
+    "ARMxl": arm_xl,
     "sleep": "sleep",
     }
 

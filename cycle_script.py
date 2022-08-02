@@ -11,14 +11,16 @@ import pyvisa
 
 from Chamber import ACS_Discovery1200
 from Connection import Charger
-from other_SCPI import CHROMA, HP6032A, ITECH
+from other_SCPI import CHROMA, HP6032A, ITECH, MSO58B
 
-default = False  # if True usa CONNECTION STRING, else open GUI for selection
-# CONNECTION STRING
+# if True usa CONNECTION STRING, else open GUI for selection
+default = False  
+# DEFAULT CONNECTION STRING
 ITECH_ADDRESS = "TCPIP0::192.168.0.102::30000::SOCKET"
 CHROMA_ADDRESS = "TCPIP0::192.168.0.101::2101::SOCKET"
 CHAMBER_ADDRESS = "COM3"
 HP6032A_ADDRESS = "GPIB::5::INSTR"
+MSO58B_ADDRESS = ""  # FIXME add default string address
 ARM_XL_ADDRESS = {"host": "192.168.0.103",
                   "user": "root",
                   "pwd": "ABB"}
@@ -83,14 +85,15 @@ def show_options(name: str, mode: str):
 def get_data():
     df = pd.read_excel("command.xlsx",
                        engine="openpyxl",
-                       sheet_name=0,
+                       sheet_name="SequenceConfig",
                        header=0,
-                       dtype={"AbsTime": int,
+                       dtype={
                               "Time": int,
                               "Instrument": str,
                               "Command": str,
                               "Argument": object}
                        )
+    
     _time = iter(df.Time)
     instr = iter(df.Instrument)
     command = iter(df.Command)
@@ -133,7 +136,7 @@ def parse_command(command: str, args: str):
     cmd = base_cmd + command + " " + args + " & >/dev/null\n"
     return cmd
 
-
+# ----- COMMAND DESCRIPTIONS ----- #
 # CHAMBER command
 # 'start_temp' no param
 # 'stop_temp' no param
@@ -165,7 +168,9 @@ def parse_command(command: str, args: str):
 # "set_current" <value>
 # "set_voltage" <value>
 # "set_output" ["on" | "off"]
-# ----- Connecting -----
+
+
+# ----- Connecting ----- #
 # ITECH
 address = show_options("ITECH", "SCPI") if default is False else ITECH_ADDRESS
 if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
@@ -187,6 +192,13 @@ if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
     hp6032a.connect(address)
 else:
     hp6032a = None
+# MSO58B
+address = show_options("MSO58B", "SCPI") if default is False else MSO58B_ADDRESS
+if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
+    mso58b = MSO58B()
+    mso58b.connect(address)
+else:
+    mso58b = None
 # CHAMBER
 com_port = show_options("CHAMBER", "COM") if default is False else CHAMBER_ADDRESS
 if com_port.startswith(("COM", "tty")):
@@ -211,6 +223,7 @@ instruments = {
     "PowerSupply": hp6032a,
     "CLIM_chamber": chamber,
     "ARMxl": arm_xl,
+    "Oscilloscope": mso58b,
     "sleep": "sleep",
     }
 

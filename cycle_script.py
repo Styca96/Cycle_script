@@ -10,6 +10,7 @@ import pandas as pd
 import pyvisa
 
 from Chamber import ACS_Discovery1200
+from check_sequence import check_sequence
 from Connection import Charger
 from other_SCPI import CHROMA, HP6032A, ITECH, MSO58B
 
@@ -20,7 +21,7 @@ ITECH_ADDRESS = "TCPIP0::192.168.0.102::30000::SOCKET"
 CHROMA_ADDRESS = "TCPIP0::192.168.0.101::2101::SOCKET"
 CHAMBER_ADDRESS = "COM3"
 HP6032A_ADDRESS = "GPIB::5::INSTR"
-MSO58B_ADDRESS = ""  # FIXME add default string address
+MSO58B_ADDRESS = "TCPIP0::192.168.0.106::inst0::INSTR"
 ARM_XL_ADDRESS = {"host": "192.168.0.103",
                   "user": "root",
                   "pwd": "ABB"}
@@ -83,17 +84,19 @@ def show_options(name: str, mode: str):
 
 
 def get_data():
-    df = pd.read_excel("command.xlsx",
-                       engine="openpyxl",
+    now = time.time()
+    df = pd.read_excel("./command.xlsx",
+                    #    engine="openpyxl",
                        sheet_name="SequenceConfig",
                        header=0,
-                       dtype={
-                              "Time": int,
-                              "Instrument": str,
-                              "Command": str,
-                              "Argument": object}
+                    #    dtype={
+                    #           "Time": int,
+                    #           "Instrument": str,
+                    #           "Command": str,
+                    #           "Argument": object}
                        )
-    
+    print(time.time()-now)
+    check_sequence(df)
     _time = iter(df.Time)
     instr = iter(df.Instrument)
     command = iter(df.Command)
@@ -170,11 +173,14 @@ def parse_command(command: str, args: str):
 # "set_output" ["on" | "off"]
 
 
+# ----- GET DATA ----- #
+lenght, list_of_time, list_of_instr, list_of_command, list_of_args = get_data()
+
 # ----- Connecting ----- #
 # ITECH
 address = show_options("ITECH", "SCPI") if default is False else ITECH_ADDRESS
 if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
-    itech = ITECH
+    itech = ITECH()
     itech.connect(address)
 else:
     itech = None
@@ -218,21 +224,20 @@ except socket.error:
     arm_xl = None
 
 instruments = {
-    "DC_Source": itech,
-    "AC_Source": chroma,
-    "PowerSupply": hp6032a,
-    "CLIM_chamber": chamber,
-    "ARMxl": arm_xl,
-    "Oscilloscope": mso58b,
+    "dc_source": itech,
+    "ac_source": chroma,
+    "powersupply": hp6032a,
+    "clim_chamber": chamber,
+    "armxl": arm_xl,
+    "oscilloscope": mso58b,
     "sleep": "sleep",
     }
 
-lenght, list_of_time, list_of_instr, list_of_command, list_of_args = get_data()
-
+# ----- EXECUTE COMMAND ----- #
 for i in range(lenght):
     now = time.time()
     rel_time = next(list_of_time)
-    instr = instruments.get(next(list_of_instr))
+    instr = instruments.get(next(list_of_instr).lower())
     if instr == arm_xl:
         command = next(list_of_command)
         args = next(list_of_args)

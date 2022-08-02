@@ -682,9 +682,11 @@ class MSO58B(Instrument):  # VERIFY try this instrument
     # ----- function MSO58B ----- #
     # ----- predefine MSO58B ----- #
     def save_screen(self, filepath: str = "default"):
+        dt = datetime.datetime.now()
         if filepath == "default":
-            dt = datetime.now()
-            filepath = dt.strftime("MSO5B_%Y%m%d_%H%M%S.png")
+            filepath = dt.strftime("OSC/MSO58B_%Y%m%d-%H%M%S.png")
+        else:
+            filepath = dt.strftime(f"{filepath}_%Y%m%d-%H%M%S.png")
         self.write_command('SAVE:IMAGe \"C:/Temp.png\"')
         self.query_command("*OPC?")
         self.write_command('FILESystem:READFile \"C:/Temp.png\"')
@@ -709,3 +711,10 @@ instrument: dict[str, Union[Type[ITECH],
                                                 "HP6032A": HP6032A,
                                                 "MSO58B": MSO58B
                                                 }
+
+
+# if __name__ == "__main__":
+#     osc = MSO58B()
+#     osc.connect("TCPIP0::192.168.0.106::inst0::INSTR")
+    
+#     osc.save_screen("C:\\Users\\ITSAGON\\image")

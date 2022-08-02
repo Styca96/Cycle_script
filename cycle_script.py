@@ -11,13 +11,14 @@ import pyvisa
 
 from Chamber import ACS_Discovery1200
 from Connection import Charger
-from other_SCPI import CHROMA, ITECH
+from other_SCPI import CHROMA, HP6032A, ITECH
 
 default = False  # if True usa CONNECTION STRING, else open GUI for selection
 # CONNECTION STRING
 ITECH_ADDRESS = "TCPIP0::192.168.0.102::30000::SOCKET"
 CHROMA_ADDRESS = "TCPIP0::192.168.0.101::2101::SOCKET"
 CHAMBER_ADDRESS = "COM3"
+HP6032A_ADDRESS = "GPIB::5::INSTR"
 ARM_XL_ADDRESS = {"host": "192.168.0.103",
                   "user": "root",
                   "pwd": "ABB"}
@@ -34,6 +35,7 @@ class Select_GUI(tk.Tk):
         self.mode = mode
         self.val = tk.StringVar(value=title + " Address")
         self.cmb = ttk.Combobox(self,
+                                width=80,
                                 values=self.refresh_instr(rm),
                                 textvariable=self.val)
         self.cmb.pack()
@@ -159,6 +161,10 @@ def parse_command(command: str, args: str):
 # CHARGER command
 # "command on the SSH client without ./" "additional param"
 
+# HP6032A
+# "set_current" <value>
+# "set_voltage" <value>
+# "set_output" ["on" | "off"]
 # ----- Connecting -----
 # ITECH
 address = show_options("ITECH", "SCPI") if default is False else ITECH_ADDRESS
@@ -174,6 +180,13 @@ if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
     chroma.connect(address)
 else:
     chroma = None
+# HP6032A
+address = show_options("HP6032A", "SCPI") if default is False else HP6032A_ADDRESS
+if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
+    power_supply = HP6032A()
+    power_supply.connect(address)
+else:
+    power_supply = None
 # CHAMBER
 com_port = show_options("CHAMBER", "COM") if default is False else CHAMBER_ADDRESS
 if com_port.startswith(("COM", "tty")):
@@ -195,6 +208,7 @@ except socket.error:
 instruments = {
     "itech": itech,
     "chroma": chroma,
+    "power_supply": power_supply,
     "chamber": chamber,
     "arm_xl": arm_xl,
     "sleep": "sleep",

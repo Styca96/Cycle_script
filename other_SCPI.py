@@ -473,7 +473,7 @@ class CHROMA(Instrument):
 class HP6032A(Instrument):  # VERIFY try this instrument
 
     def __init__(self, setup: dict = {}, dataconfig: dict = {}) -> None:
-        super().__init__(self)
+        super().__init__()
         self._setup = setup
         self._dataconfig = dataconfig
 
@@ -513,24 +513,23 @@ class HP6032A(Instrument):  # VERIFY try this instrument
 
     def config(self):
         """Configurazione setup e measurement"""
-        self._instrument.write("INSTrument:COUPle ALL")  # setup for all phase
         self.set_setup(self.setup)
         # self.set_data_configuration(self.dataconfig)
 
     # ----- function HPPowerSupply ----- #
-    def current(self, value: float | None = None):
+    def set_current(self, value: float | None = None):
         if value is None:
             return self._instrument.query(":CURR?")
         else:
             self._instrument.write(f":CURR {value}")
 
-    def voltage(self, value: float | None = None):
+    def set_voltage(self, value: float | None = None):
         if value is None:
             return self._instrument.query(":VOLT?")
         else:
             self._instrument.write(f":VOLT {value}")
 
-    def output(self, state: bool | Literal["on", "off"]):
+    def set_output(self, state: bool | Literal["on", "off"]):
         if isinstance(state, str):
             if state in ("on", "ON"):
                 state = 1
@@ -549,7 +548,7 @@ class HP6032A(Instrument):  # VERIFY try this instrument
             raise KeyError("misura non disponibile\nSeleziona tra"
                            " 'current' o 'voltage'")
     # ----- all COMMAND -----#
-    COMMAND = []  # TODO add all useful command
+    COMMAND = ["set_output", "set_current", "set_voltage"]  # TODO add all useful command
 
 
 instrument: dict[str, Union[Type[ITECH], Type[CHROMA], Type[HP6032A]]] = {

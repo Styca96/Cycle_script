@@ -9,10 +9,10 @@ from typing import Iterable
 import pandas as pd
 import pyvisa
 
-from Chamber import ACS_Discovery1200
-from check_sequence import check_sequence
-from Connection import Charger
-from other_SCPI import CHROMA, HP6032A, ITECH, MSO58B
+from libraries.Chamber import ACS_Discovery1200
+from libraries.check_sequence import get_data
+from libraries.Connection import Charger
+from libraries.other_SCPI import CHROMA, HP6032A, ITECH, MSO58B
 
 # if True usa CONNECTION STRING, else open GUI for selection
 default = False  
@@ -83,28 +83,6 @@ def show_options(name: str, mode: str):
     return root.val.get()
 
 
-def get_data():
-    now = time.time()
-    df = pd.read_excel("./command.xlsx",
-                    #    engine="openpyxl",
-                       sheet_name="SequenceConfig",
-                       header=0,
-                    #    dtype={
-                    #           "Time": int,
-                    #           "Instrument": str,
-                    #           "Command": str,
-                    #           "Argument": object}
-                       )
-    print(time.time()-now)
-    check_sequence(df)
-    _time = iter(df.Time)
-    instr = iter(df.Instrument)
-    command = iter(df.Command)
-    args = iter(df.Argument)
-    lenght = df.__len__()
-    return lenght, _time, instr, command, args
-
-
 def arg_parse(arg_str):
     import ast
     if isinstance(arg_str, pd._libs.missing.NAType | NoneType):
@@ -116,8 +94,9 @@ def arg_parse(arg_str):
     elif isinstance(arg_str, int) or isinstance(arg_str, float):
         return [arg_str]
     else:
+        "".split()
         args = [i.split() if len(i.split()) > 1 else i
-                for i in arg_str.split(" ")]
+                for i in arg_str.split()]
 
     def tryeval(val):
         if isinstance(val, Iterable) and not isinstance(val, str):
@@ -171,6 +150,9 @@ def parse_command(command: str, args: str):
 # "set_current" <value>
 # "set_voltage" <value>
 # "set_output" ["on" | "off"]
+
+# MSO58B
+# "save_screen" <filepath>
 
 
 # ----- GET DATA ----- #
@@ -238,18 +220,21 @@ for i in range(lenght):
     now = time.time()
     rel_time = next(list_of_time)
     instr = instruments.get(next(list_of_instr).lower())
-    if instr == arm_xl:
+    # --- ARMxl command --- #
+    if instr == arm_xl:  
         command = next(list_of_command)
         args = next(list_of_args)
         cmd = parse_command(command, args)
         print(instr, cmd)
         instr: Charger
         instr._shell.send(cmd)
+    # --- sleep command --- #
     # if instr == "sleep":
     elif instr == "sleep":
         print(f"Wait {rel_time} seconds ")
         _ = next(list_of_command)
         _ = next(list_of_args)
+    # --- SCPI or MODBUS command --- #
     # elif instr != "sleep":  # not arm_xl instrument
     elif instr != arm_xl:  # not arm_xl instrument
         command = getattr(instr, next(list_of_command))

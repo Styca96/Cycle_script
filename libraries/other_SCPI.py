@@ -368,7 +368,7 @@ class ITECH(Instrument):
         v, c, p, _, _ = self._instrument.query("FETch:SCALar?")
         return v, c, p
 
-    # def set_setup(self, setup:dict): # TODO tutte impostazioni setup ITECH
+    # def set_setup(self, setup:dict): # NEW FEATURE tutte impostazioni setup ITECH
     #   """Impostazioni di setup\n
     #   Args:
     #       setup_option (dict): dizionario delle impostazioni"""
@@ -474,7 +474,7 @@ class CHROMA(Instrument):
         pass
 
     # ----- predefine CHROMA ----- #
-    def europe_grip(self):
+    def europe_grid(self):
         self.set_frequency(50.0)
         self.set_voltage(230.0, "ac")
 
@@ -514,7 +514,7 @@ class CHROMA(Instrument):
         return frequency, voltage, current, power, pf
 
     COMMAND = ["set_output", "set_frequency", "set_voltage",
-               "europe_grip", "usa_grid"]
+               "europe_grid", "usa_grid"]
 
 
 class HP6032A(Instrument):
@@ -601,7 +601,7 @@ class HP6032A(Instrument):
 class MSO58B(Instrument):  # VERIFY try this instrument
     typeOfInstrument = "Oscilloscope"
     manufactor = "Tektronik"
-    measure = None  # TODO measure options
+    measure = None  # NEW FEATURE measure options
     # SOCKET port is 4000
 
     # ACTONEVent:MASKFail:ACTION:SAVEIMAGe:STATE Save a screen capture when a
@@ -658,7 +658,7 @@ class MSO58B(Instrument):  # VERIFY try this instrument
         assert isinstance(value, dict)
         self._dataconfig = value
 
-    def set_terminator(self) -> str:  # VERIFY terminator of instrument
+    def set_terminator(self) -> str:
         """Setta carattere terminatore sia in scrittura che in lettura"""
         self._instrument.read_termination = "\n"
         self._instrument.write_termination = "\n"
@@ -699,7 +699,7 @@ class MSO58B(Instrument):  # VERIFY try this instrument
 
     # ----- status and reading ----- #
     # ----- all COMMAND -----#
-    COMMAND = []  # TODO all useful methods
+    COMMAND = ["save_screen"]
 
 
 instrument: dict[str, Union[Type[ITECH],

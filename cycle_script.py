@@ -237,7 +237,7 @@ for i in range(lenght):
     # --- SCPI or MODBUS command --- #
     # elif instr != "sleep":  # not arm_xl instrument
     elif instr != arm_xl:  # not arm_xl instrument
-        command = getattr(instr, next(list_of_command))
+        command = getattr(instr, next(list_of_command).strip())
         args = arg_parse(next(list_of_args))
         print(instr, command, args)
         if args is None:

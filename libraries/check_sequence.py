@@ -30,10 +30,9 @@ def get_data(all_data=False):
     now = time.time()  # XXX debug read excel
     filepath = path.dirname(path.dirname(path.realpath(__file__)))
     try:
-        df = pd.read_excel(f"{filepath}/command_debug.xlsx",  # XXX debug, change to real file_name # noqa: E501
+        df = pd.read_excel(f"{filepath}/command (1).xlsx",  # XXX debug, change to real file_name # noqa: E501
                            engine="openpyxl",
-                        #    sheet_name="HOLD_SequenceConfig",  # XXX debug
-                           sheet_name="Foglio1",
+                           sheet_name="SequenceConfig",  # XXX debug
                            usecols=["Time", "Instrument", "Command", "Argument"],
                            header=0,
                            dtype={"Time": int,
@@ -41,6 +40,7 @@ def get_data(all_data=False):
                                   "Command": str,
                                   "Argument": str}
                            )
+        df.Command = df.Command.str.strip()
     except Exception as e:
         title = "Errore lettura FILE"
         message = "Errore sui 'tipi' dei valori sulle colonne"

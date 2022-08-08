@@ -30,7 +30,7 @@ def get_data(all_data=False):
     now = time.time()  # XXX debug read excel
     filepath = path.dirname(path.dirname(path.realpath(__file__)))
     try:
-        df = pd.read_excel(f"{filepath}/command_debug.xlsx",  # XXX debug, change to real file_name
+        df = pd.read_excel(f"{filepath}/command_debug.xlsx",  # XXX debug, change to real file_name # noqa: E501
                            engine="openpyxl",
                         #    sheet_name="HOLD_SequenceConfig",  # XXX debug
                            sheet_name="Foglio1",
@@ -98,7 +98,7 @@ def check_sequence(df: pd.DataFrame):
             len_d = len(f.__defaults__) if f.__defaults__ is not None else 0
             if not f.__code__.co_argcount - len_d - 1 <= len_args <= f.__code__.co_argcount - 1:
                 args_err.append(i+2)
-  
+
     except Exception as e:
         title = "Errore FILE"
         message = "Errore colonne del file di comando"

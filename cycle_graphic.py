@@ -1,21 +1,13 @@
 #!/usr/bin/env python
-import time
-from tkinter import messagebox
-
 import matplotlib.pyplot as plt
 import matplotlib.style as mplstyle
-import matplotlib.transforms as mtrans
+# import matplotlib.transforms as mtrans
 import pandas as pd
 
-from libraries.Chamber import ACS_Discovery1200
 from libraries.check_sequence import get_data
-from libraries.Connection import Charger
-from libraries.other_SCPI import CHROMA, HP6032A, ITECH, MSO58B
 
-mplstyle.use("seaborn")
+mplstyle.use("seaborn-darkgrid")
 plt.rcParams["axes.grid.axis"] = "x"
-# import pandas as pd
-
 
 # ----- get data ----- #
 df = get_data(all_data=True)
@@ -28,7 +20,9 @@ df_dc = df.loc[df['Instrument'] == "dc_source"]
 TIME = df.AbsTime.min(), df.AbsTime.max()
 
 # ----- plot ----- #
-fig, (ax_ch, ax_arm, ax_ac, ax_dc) = plt.subplots(4, dpi=125)
+fig, (ax_ch, ax_arm, ax_ac, ax_dc) = plt.subplots(
+    4, figsize=(8, 4), dpi=125, sharex=True
+    )
 fig.set_tight_layout(
     {"pad": 0.5, "w_pad": 0.1, "h_pad": 0.1, "rect": None}
     )
@@ -67,7 +61,7 @@ time_ = [0] + df_ch_temp.AbsTime.to_list()
 args = df_ch_temp.Argument.to_list()
 temp = [None]
 hum = [None]
-for i in args: # TODO write setpoint with time to set
+for i in args:  # TODO write setpoint with time to set
     sample = i.split()
     if sample[0] == "Temp":
         temp.append(int(sample[1]))
@@ -84,12 +78,16 @@ ax_ch.set_xlim(TIME)
 # ax_ch.set_ylim(-50, 120) # fixed Temp limit
 # ax_ch.set_xmargin(5)
 ax_ch2 = ax_ch.twinx()
-ax_ch.set_title("Climate Chamber")
-ax_ch.set_ylabel("T")
+# ax_ch.set_title("Chamber")
+# ax_ch.set_title("Chamber", rotation='vertical',  y=0, x=-0.06)
+# ax_ch.set_ylabel("T")
+ax_ch.set_ylabel("Chamber\nT")
 ax_ch2.set_ylabel("H%")
 # ax_ch.yaxis.set_label_coords(-0.1, 4/2)
-p1, = ax_ch.step(*parse(time_, temp), where="post", label="T", color=next(cycle))
-p2, = ax_ch2.step(*parse(time_, hum), where="post", label="H%", color=next(cycle))
+p1, = ax_ch.step(*parse(time_, temp), where="post", label="T",
+                 color=next(cycle))
+p2, = ax_ch2.step(*parse(time_, hum), where="post", label="H%",
+                  color=next(cycle))
 lns = [p1, p2]
 leg = ax_ch2.legend(handles=lns, loc='upper right')
 # leg = ax_dc3.legend(handles=lns, bbox_to_anchor=(1.1, 1), borderaxespad=0)
@@ -127,17 +125,19 @@ ax_arm.set_xlim(TIME)
 # ax_arm.set_xmargin(5)
 ax_arm2 = ax_arm.twinx()
 ax_arm3 = ax_arm.twinx()
-ax_arm.set_title("ARMxl")
-ax_arm.set_ylabel("V")
+# ax_arm.set_title("ARMxl")
+# ax_arm.set_title("ARMxl", rotation='vertical',  y=0, x=-0.06)
+# ax_arm.set_ylabel("V")
+ax_arm.set_ylabel("ARMxl\nV")
 ax_arm2.set_ylabel("S")
 ax_arm3.set_ylabel("State")
 # ax_arm.yaxis.set_label_coords(-0.1, 4/2)
-p1, = ax_arm.step(*parse(time_v, v_setpoint), where="post", label="V", color=next(cycle), alpha=.5)
-# mtrans.offset_copy(ax_arm.transData, fig=fig, x=0.0, y=2*(0-1), units='points')
-p2, = ax_arm2.step(*parse(time_p, p_setpoint), where="post", label="S", color=next(cycle), alpha=.5)
-# mtrans.offset_copy(ax_arm.transData, fig=fig, x=0.0, y=2*(1-1), units='points')
-p3, = ax_arm3.step(*parse(time_out, output), where="post", label="State", color=next(cycle), alpha=.5, linestyle="dashdot")
-# mtrans.offset_copy(ax_arm3.transData, fig=fig, x=0.0, y=2*(2-1), units='points')
+p1, = ax_arm.step(*parse(time_v, v_setpoint), where="post", label="V",
+                  color=next(cycle), alpha=.5)
+p2, = ax_arm2.step(*parse(time_p, p_setpoint), where="post", label="S",
+                   color=next(cycle), alpha=.5)
+p3, = ax_arm3.step(*parse(time_out, output), where="post", label="State",
+                   color=next(cycle), alpha=.5, linestyle="dashdot")
 set_spines(ax_arm3)
 lns = [p1, p2, p3]
 leg = ax_arm3.legend(handles=lns, loc='upper right')
@@ -180,17 +180,19 @@ ax_ac.set_xlim(TIME)
 # ax_arm.set_xmargin(5)
 ax_ac2 = ax_ac.twinx()
 ax_ac3 = ax_ac.twinx()
-ax_ac.set_title("AC Source")
-ax_ac.set_ylabel("V")
+# ax_ac.set_title("AC Source")
+# ax_ac.set_title("AC Source", rotation='vertical',  y=0, x=-0.06)
+# ax_ac.set_ylabel("V")
+ax_ac.set_ylabel("AC Source\nV")
 ax_ac2.set_ylabel("Hz")
 ax_ac3.set_ylabel("State")
 # ax_ac.yaxis.set_label_coords(-0.1, 4/2)
-p1, = ax_ac.step(*parse(time_v, v_setpoint), where="post", label="V", color=next(cycle), alpha=.5)
-# mtrans.offset_copy(ax_ac.transData, fig=fig, x=0.0, y=2*(0-1), units='points')
-p2, = ax_ac2.step(*parse(time_f, f_setpoint), where="post", label="Freq", color=next(cycle), alpha=.5)
-# mtrans.offset_copy(ax_ac.transData, fig=fig, x=0.0, y=2*(1-1), units='points')
-p3, = ax_ac3.step(*parse(time_, output), where="post", label="State", color=next(cycle), alpha=.5, linestyle="dashdot")
-# mtrans.offset_copy(ax_ac3.transData, fig=fig, x=0.0, y=2*(2-1), units='points')
+p1, = ax_ac.step(*parse(time_v, v_setpoint), where="post", label="V",
+                 color=next(cycle), alpha=.5)
+p2, = ax_ac2.step(*parse(time_f, f_setpoint), where="post", label="Freq",
+                  color=next(cycle), alpha=.5)
+p3, = ax_ac3.step(*parse(time_, output), where="post", label="State",
+                  color=next(cycle), alpha=.5, linestyle="dashdot")
 set_spines(ax_ac3)
 lns = [p1, p2, p3]
 leg = ax_ac3.legend(handles=lns, loc='upper right')
@@ -205,8 +207,6 @@ time_ = df_dc_out.AbsTime.to_list()
 output = df_dc_out.Argument.isin(("on", "ON", "On", 1, True)).to_list()
 df_dc_set = pd.concat([df_dc, df_dc_out]).drop_duplicates(keep=False)
 
-# if (df_dc_set[df_dc_set.Command == "set_function"].Argument=="voltage").bool():
-    # pass
 time_vh = [0]
 time_vl = [0]
 time_ih = [0]
@@ -221,7 +221,7 @@ ax_dc.set_xlim(TIME)
 # ax_arm.set_xmargin(5)
 ax_dc2 = ax_dc.twinx()
 ax_dc3 = ax_dc.twinx()
-for abs_time, cmd, value in zip(df_dc_set.AbsTime, # TODO gestione time to set V e C
+for abs_time, cmd, value in zip(df_dc_set.AbsTime,  # TODO gestione time to set V e C # noqa: E501
                                 df_dc_set.Command,
                                 df_dc_set.Argument):
     if cmd == "set_function":
@@ -237,7 +237,7 @@ for abs_time, cmd, value in zip(df_dc_set.AbsTime, # TODO gestione time to set V
                 time_ih.append(abs_time)
             mode = "voltage"
         elif value == "current":
-            ax_dc3.text(abs_time + 0.1 , 0.1, "CC mode", rotation=90)
+            ax_dc3.text(abs_time + 0.1, 0.1, "CC mode", rotation=90)
             if mode is not None:
                 vh_setpoint.append(None)
                 time_vh.append(abs_time)
@@ -246,7 +246,7 @@ for abs_time, cmd, value in zip(df_dc_set.AbsTime, # TODO gestione time to set V
                 il_setpoint.append(None)
                 time_il.append(abs_time)
             mode = "current"
-            
+
     if cmd == "set_voltage":
         vh_setpoint.append(int(value.split()[0]))
         time_vh.append(abs_time)
@@ -265,19 +265,23 @@ for abs_time, cmd, value in zip(df_dc_set.AbsTime, # TODO gestione time to set V
         time_il.append(abs_time)
 
 # plot
-ax_dc.set_title("DC Source")
-ax_dc.set_ylabel("V")
+# ax_dc.set_title("DC Source")
+# ax_dc.set_title("DC Source", rotation='vertical',  y=0, x=-0.06)
+# ax_dc.set_ylabel("V")
+ax_dc.set_ylabel("DC Source\nV")
 ax_dc2.set_ylabel("I")
 ax_dc3.set_ylabel("State")
 # ax_dc.yaxis.set_label_coords(-0.1, 4/2)
-p1, = ax_dc.step(*parse(time_vh, vh_setpoint), where="post", label="V/Vhigh", color=next(cycle), alpha=.5)
-p1b, = ax_dc.step(*parse(time_vl, vl_setpoint), where="post", label="Vlow", color=next(cycle), alpha=.5, linestyle="dashed")
-# mtrans.offset_copy(ax_dc.transData, fig=fig, x=0.0, y=2*(0-1), units='points')
-p2, = ax_dc2.step(*parse(time_ih, ih_setpoint), where="post", label="I/I+", color=next(cycle), alpha=.5)
-p2b, = ax_dc2.step(*parse(time_il, il_setpoint), where="post", label="I-", color=next(cycle), alpha=.5, linestyle="dashed")
-# mtrans.offset_copy(ax_dc.transData, fig=fig, x=0.0, y=2*(1-1), units='points')
-p3, = ax_dc3.step(*parse(time_, output), where="post", label="State", color=next(cycle), alpha=.5, linestyle="dashdot")
-# mtrans.offset_copy(ax_dc3.transData, fig=fig, x=0.0, y=2*(2-1), units='points')
+p1, = ax_dc.step(*parse(time_vh, vh_setpoint), where="post", label="V/Vhigh",
+                 color=next(cycle), alpha=.5)
+p1b, = ax_dc.step(*parse(time_vl, vl_setpoint), where="post", label="Vlow",
+                  color=next(cycle), alpha=.5, linestyle="dashed")
+p2, = ax_dc2.step(*parse(time_ih, ih_setpoint), where="post", label="I/I+",
+                  color=next(cycle), alpha=.5)
+p2b, = ax_dc2.step(*parse(time_il, il_setpoint), where="post", label="I-",
+                   color=next(cycle), alpha=.5, linestyle="dashed")
+p3, = ax_dc3.step(*parse(time_, output), where="post", label="State",
+                  color=next(cycle), alpha=.5, linestyle="dashdot")
 set_spines(ax_dc3)
 lns = [p1, p1b, p2, p2b, p3]
 leg = ax_dc3.legend(handles=lns, loc="upper right")

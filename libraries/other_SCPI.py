@@ -716,5 +716,5 @@ instrument: dict[str, Union[Type[ITECH],
 # if __name__ == "__main__":
 #     osc = MSO58B()
 #     osc.connect("TCPIP0::192.168.0.106::inst0::INSTR")
-    
+
 #     osc.save_screen("C:\\Users\\ITSAGON\\image")

@@ -1,4 +1,5 @@
 import time
+from os import path
 from tkinter import messagebox
 
 import pandas as pd
@@ -14,6 +15,7 @@ instr_dict = {
     "ac_source": CHROMA,
     "powersupply": HP6032A,
     "clim_chamber": ACS_Discovery1200,
+    # default command for ARES, not based on library or Charger class
     "armxl": {"set_voltage_and_power.sh": 2,
               "start_charge_session.sh": 0,
               "stop_charge_session.sh": 0,
@@ -24,10 +26,11 @@ instr_dict = {
     }
 
 
-def get_data():
+def get_data(all_data=False):
     now = time.time()  # XXX debug read excel
+    filepath = path.dirname(path.dirname(path.realpath(__file__)))
     try:
-        df = pd.read_excel("./command_debug.xlsx",
+        df = pd.read_excel(f"{filepath}/command_debug.xlsx",  # XXX debug, change to real file_name
                            engine="openpyxl",
                         #    sheet_name="HOLD_SequenceConfig",  # XXX debug
                            sheet_name="Foglio1",
@@ -50,7 +53,10 @@ def get_data():
         command = iter(df.Command)
         args = iter(df.Argument)
         lenght = df.__len__()
-        return lenght, _time, instr, command, args
+        if all_data:
+            return df
+        else:
+            return lenght, _time, instr, command, args
 
 
 def check_sequence(df: pd.DataFrame):
@@ -89,7 +95,7 @@ def check_sequence(df: pd.DataFrame):
                     args_err.append(i+2)
                 continue
             f = getattr(instr_dict.get(instr[i]), command[i])
-            len_d = len(f.__defaults__) if f.__defaults__ != None else 0
+            len_d = len(f.__defaults__) if f.__defaults__ is not None else 0
             if not f.__code__.co_argcount - len_d - 1 <= len_args <= f.__code__.co_argcount - 1:
                 args_err.append(i+2)
   
@@ -112,7 +118,7 @@ def to_json(df):
         # sample_records
         df.to_json(outfile, orient='records', indent=4)
         # records value
-        df.to_json(outfile, orient='values',indent=4)
+        df.to_json(outfile, orient='values', indent=4)
 
 
 if __name__ == "__main__":

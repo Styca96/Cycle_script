@@ -20,7 +20,7 @@ class Instrument:
         self.connection = False
 
     def __str__(self) -> str:
-        return f"Instrument string({self._instrument})"
+        return f"Instr: {self._instrument}"
 
     def connect(self, id_string: str):
         """Si connette allo strumento\n

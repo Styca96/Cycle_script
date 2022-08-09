@@ -30,9 +30,11 @@ def get_data(all_data=False):
     now = time.time()  # XXX debug read excel
     filepath = path.dirname(path.dirname(path.realpath(__file__)))
     try:
-        df = pd.read_excel(f"{filepath}/command (1).xlsx",  # XXX debug, change to real file_name # noqa: E501
+        df = pd.read_excel(
+                        #    f"{filepath}/command (1).xlsx",  # real file
+                           f"{filepath}/command_debug.xlsx",  # XXX debug, change to real file_name # noqa: E501                            
                            engine="openpyxl",
-                           sheet_name="SequenceConfig",  # XXX debug
+                           sheet_name="SequenceConfig",
                            usecols=["Time", "Instrument", "Command", "Argument"],
                            header=0,
                            dtype={"Time": int,

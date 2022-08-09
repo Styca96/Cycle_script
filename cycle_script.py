@@ -1,6 +1,7 @@
 import socket
 import time
 import tkinter as tk
+from datetime import datetime
 from os import popen
 from tkinter import ttk
 from types import NoneType
@@ -15,7 +16,7 @@ from libraries.Connection import Charger
 from libraries.other_SCPI import CHROMA, HP6032A, ITECH, MSO58B
 
 # if True usa CONNECTION STRING, else open GUI for selection
-default = False  
+default = False
 # DEFAULT CONNECTION STRING
 ITECH_ADDRESS = "TCPIP0::192.168.0.102::30000::SOCKET"
 CHROMA_ADDRESS = "TCPIP0::192.168.0.101::2101::SOCKET"
@@ -218,20 +219,21 @@ instruments = {
 # ----- EXECUTE COMMAND ----- #
 for i in range(lenght):
     now = time.time()
+    time_ = datetime.now().strftime("%d/%m/%Y %H:%M:%S - ")
     rel_time = next(list_of_time)
     instr = instruments.get(next(list_of_instr).lower())
     # --- ARMxl command --- #
-    if instr == arm_xl:  
+    if instr == arm_xl:
         command = next(list_of_command)
         args = next(list_of_args)
         cmd = parse_command(command, args)
-        print(instr, cmd)
+        print(time_, instr, f" - send: {cmd}")
         instr: Charger
         instr._shell.send(cmd)
     # --- sleep command --- #
     # if instr == "sleep":
     elif instr == "sleep":
-        print(f"Wait {rel_time} seconds ")
+        print(time_, f"Wait {rel_time} seconds ")
         _ = next(list_of_command)
         _ = next(list_of_args)
     # --- SCPI or MODBUS command --- #
@@ -239,7 +241,7 @@ for i in range(lenght):
     elif instr != arm_xl:  # not arm_xl instrument
         command = getattr(instr, next(list_of_command).strip())
         args = arg_parse(next(list_of_args))
-        print(instr, command, args)
+        print(time_, instr, f"send: {command} - ", args)
         if args is None:
             command()
         elif isinstance(args, tuple):

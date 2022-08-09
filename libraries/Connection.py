@@ -43,6 +43,9 @@ class Charger:
             self._shell.close()
         self._client.close()
 
+    def __str__(self):
+        return f"ARMxl {self.hostname}"
+
     def command(self, command: str, *args):
         """Esegue comando sul server connesso\n
         Args:

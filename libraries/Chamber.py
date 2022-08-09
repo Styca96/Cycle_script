@@ -132,7 +132,7 @@ class ACS_Discovery1200(ModbusClient):
 
     def __str__(self):
         modbus = super().__str__()
-        return f"Angelantoni ACS Discovery D1200 - {modbus}"
+        return f"ACS Discovery D1200 - {modbus}"
 
     # @classmethod   # to set class property, but instance writable
     @property

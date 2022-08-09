@@ -1,11 +1,12 @@
 #!/usr/bin/env python
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import matplotlib.style as mplstyle
+import numpy as np
 # import matplotlib.transforms as mtrans
 import pandas as pd
-from numpy import linspace
 
-from libraries.check_sequence import get_data
+from libraries.infer_data import get_data
 
 # mplstyle options
 mplstyle.use("seaborn-darkgrid")
@@ -39,18 +40,20 @@ def parse(time_: list[int], data: list[int]) -> tuple[list[int], list[int]]:
     Returns:
         tuple[list[int], list[int]]: correct data
     """
-    data.append(data[-1])  # copy last value
+    new_data = data.copy()
+    new_data.append(data[-1])  # copy last value
     last_time = TIME_SEC[1]  # add last time
     new_time = time_.copy()
     new_time.append(last_time)
-    # hms_time = []
-    # for totsec in new_time:
-    #     h = totsec//3600
-    #     m = (totsec % 3600) // 60
-    #     sec = (totsec % 3600) % 60
-    #     hms_time.append(f"{h}:{m}:{sec}")
-    # return hms_time, data
-    return new_time, data
+    hms_time = []
+    for totsec in new_time:
+        h = totsec//3600
+        m = (totsec % 3600) // 60
+        sec = (totsec % 3600) % 60
+        hms_time.append(f"{h:02d}:{m:02d}:{sec:02d}")
+    mpl_date = mdates.datestr2num(hms_time)
+    return mdates.num2date(mpl_date), new_data
+    return new_time, new_data
 
 
 def set_spines(ax) -> None:
@@ -72,7 +75,7 @@ fig, (ax_ch, ax_arm, ax_ac, ax_dc) = plt.subplots(
 fig.set_tight_layout(
     {"pad": 0.5, "w_pad": 0.1, "h_pad": 0.1, "rect": None}
     )
-TIME = parse(TIME_SEC, [None])[0][0:2]  # for future parsing time
+# TIME = parse(TIME_SEC, [None])[0][0:2]  # for future parsing time
 # fig = plt.figure()
 # gs = fig.add_gridspec(4, hspace=0)
 # ax_arm, ax_arm, ax_ac, ax_dc = gs.subplots(sharex=True, sharey=False)
@@ -104,7 +107,9 @@ for i in args:
         start_time = time_[index]
         start_value = next(item for item in val[::-1] if item is not None)
         final_value = int(sample[1])
-        step_setpoint = linspace(start_value, final_value, int(sample[2]) + 1)
+        step_setpoint = np.linspace(
+            start_value, final_value, int(sample[2]) + 1
+            )
         step_time = []
         for i in range(len(step_setpoint)-1):
             step_time.append(start_time + i*60)
@@ -117,7 +122,7 @@ for i in args:
 
 # plot
 cycle = iter(plt.rcParams['axes.prop_cycle'].by_key()['color'])
-ax_ch.set_xlim(TIME)
+# ax_ch.set_xlim(TIME)
 # ax_ch.set_ylim(-50, 120) # fixed Temp limit
 # ax_ch.set_xmargin(5)
 ax_ch2 = ax_ch.twinx()
@@ -144,6 +149,7 @@ df_arm_out = df_arm.loc[df_arm['Command'].str.endswith("charge_session.sh")]
 time_out = [0] + df.AbsTime.iloc[df_arm_out.index-1].to_list()
 output = [None] + df_arm_out.Command.str.startswith("start").to_list()
 df_arm_set = pd.concat([df_arm, df_arm_out]).drop_duplicates(keep=False)
+# df_arm_set = df_arm.drop(df_arm_out.index)
 time_v = [0]
 time_p = [0]
 v_setpoint = [None]  # add base value
@@ -165,7 +171,7 @@ for abs_time, cmd, value in zip(df_arm_set.AbsTime.index,
         v_setpoint.append(int(values[0])/10)
 
 # plot
-ax_arm.set_xlim(TIME)
+# ax_arm.set_xlim(TIME)
 # ax_arm.set_xmargin(5)
 ax_arm2 = ax_arm.twinx()
 ax_arm3 = ax_arm.twinx()
@@ -221,7 +227,7 @@ for abs_time, cmd, value in zip(df_ac_set.AbsTime.index,
         time_f.append(df.AbsTime[abs_time-1])
 
 # plot
-ax_ac.set_xlim(TIME)
+# ax_ac.set_xlim(TIME)
 # ax_arm.set_xmargin(5)
 ax_ac2 = ax_ac.twinx()
 ax_ac3 = ax_ac.twinx()
@@ -263,11 +269,11 @@ ih_setpoint = [None]  # add base value
 il_setpoint = [None]  # add base value
 mode = None
 # plot messi prima per stampare i MODE in ax3 = state
-ax_dc.set_xlim(TIME)
+# ax_dc.set_xlim(TIME)
 # ax_arm.set_xmargin(5)
 ax_dc2 = ax_dc.twinx()
 ax_dc3 = ax_dc.twinx()
-for abs_time, cmd, value in zip(df_dc_set.AbsTime.index,  # TODO gestione time to set V e C # noqa: E501
+for abs_time, cmd, value in zip(df_dc_set.AbsTime.index,
                                 df_dc_set.Command,
                                 df_dc_set.Argument):
     if cmd == "set_function":
@@ -294,22 +300,41 @@ for abs_time, cmd, value in zip(df_dc_set.AbsTime.index,  # TODO gestione time t
                 il_setpoint.append(None)
                 time_il.append(df.AbsTime[abs_time-1])
             mode = "current"
+        continue
 
-    if cmd == "set_voltage":
-        vh_setpoint.append(int(value.split()[0]))
-        time_vh.append(df.AbsTime[abs_time-1])
-    elif cmd == "set_current":
-        ih_setpoint.append(int(value.split()[0]))
-        time_ih.append(df.AbsTime[abs_time-1])
+    split_val = value.split()
+    if cmd == "set_voltage" or cmd == "set_current":
+        if cmd == "set_voltage":
+            val_time = time_vh
+            val_list = vh_setpoint
+        elif cmd == "set_current":
+            val_time = time_ih
+            val_list = ih_setpoint
+
+        if len(split_val) == 2:
+            start_time = val_time[-1]
+            time_to_set = int(split_val[1])
+            start_value = next(item for item in val_list[::-1] if item is not None)
+            final_value = int(split_val[0])
+            step = (final_value - start_value) / (time_to_set / 0.5)
+            values = np.arange(start_value, final_value, step
+                               ).tolist() + [final_value]
+            for i in range(len(values) - 1):
+                val_time.append(df.AbsTime[abs_time-1] + i*0.5)
+                val_list.append(values[i+1])
+        else:
+            val_list.append(int(split_val[0]))
+            val_time.append(df.AbsTime[abs_time-1])
+
     elif cmd == "set_v_limit":
-        vh_setpoint.append(int(value.split()[1]))
+        vh_setpoint.append(int(split_val[1]))
         time_vh.append(df.AbsTime[abs_time-1])
-        vl_setpoint.append(int(value.split()[0]))
+        vl_setpoint.append(int(split_val[0]))
         time_vl.append(df.AbsTime[abs_time-1])
     elif cmd == "set_c_limit":
-        ih_setpoint.append(int(value.split()[1]))
+        ih_setpoint.append(int(split_val[1]))
         time_ih.append(df.AbsTime[abs_time-1])
-        il_setpoint.append(int(value.split()[0]))
+        il_setpoint.append(int(split_val[0]))
         time_il.append(df.AbsTime[abs_time-1])
 
 # continue plot
@@ -335,5 +360,8 @@ lns = [p1, p1b, p2, p2b, p3]
 leg = ax_dc3.legend(handles=lns, loc="upper right")
 leg.set_draggable(True)
 
+
+date_form = mdates.DateFormatter("%H:%M:%S")
+ax_dc.xaxis.set_major_formatter(date_form)
 plt.show()
 pass

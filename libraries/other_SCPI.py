@@ -293,11 +293,10 @@ class ITECH(Instrument):
 
     def __gradient_setpoint(self, target: Callable,
                             values: Iterable, timer: float):  # VERIFY gradient
-        n_step = len(values)
         start = time.time()
-        for i in range(0, n_step):
+        for i in range(len(values)-1):
             now = time.time()
-            target(values[i])
+            target(values[i+1])
             while (time.time() <= (now + self.TIMESTEP) and
                    (time.time() - start) < timer):
                 continue
@@ -313,11 +312,11 @@ class ITECH(Instrument):
 
                 assert isinstance(time_to_set, float | int)
                 start_value = self._instrument.query_ascii_values("CURR?")
-                target = self.set_current
+                target_ = self.set_current
                 step = (value - start_value) / (time_to_set / self.TIMESTEP)
                 values = np.arange(start_value, value, step).tolist() + [value]
                 t = threading.Thread(target=self.__gradient_setpoint,
-                                     args=(target, values, time_to_set),
+                                     args=(target_, values, time_to_set),
                                      daemon=True)
                 t.start()
         else:
@@ -341,11 +340,11 @@ class ITECH(Instrument):
 
                 assert isinstance(time_to_set, float | int)
                 start_value = self._instrument.query_ascii_values("VOLT?")
-                target = self.set_voltage
+                target_ = self.set_voltage
                 step = (value - start_value) / (time_to_set / self.TIMESTEP)
                 values = np.arange(start_value, value, step).tolist() + [value]
                 t = threading.Thread(target=self.__gradient_setpoint,
-                                     args=(target, values, time_to_set),
+                                     args=(target_, values, time_to_set),
                                      daemon=True)
                 t.start()
         else:

@@ -1,3 +1,4 @@
+import sys
 import time
 from os import path
 from tkinter import messagebox
@@ -5,17 +6,15 @@ from tkinter import messagebox
 import pandas as pd
 
 from .Chamber import ACS_Discovery1200
-from .Connection import Charger
+# from .Connection import Charger
 from .other_SCPI import CHROMA, HP6032A, ITECH, MSO58B
 
-# instr_list = ["dc_source", "ac_source", "powersupply",
-#               "clim_chamber", "armxl", "oscilloscope", "sleep"]
 instr_dict = {
     "dc_source": ITECH,
     "ac_source": CHROMA,
     "powersupply": HP6032A,
     "clim_chamber": ACS_Discovery1200,
-    # default command for ARES, not based on library or Charger class
+    # FIXME default command for ARES, not based on library or Charger class
     "armxl": {"set_voltage_and_power.sh": 2,
               "start_charge_session.sh": 0,
               "stop_charge_session.sh": 0,
@@ -26,27 +25,31 @@ instr_dict = {
     }
 
 
-def get_data(all_data=False):
+def get_data(all_data=False, filename: str = "command.xlsx"):
     now = time.time()  # XXX debug read excel
     filepath = path.dirname(path.dirname(path.realpath(__file__)))
     try:
-        df = pd.read_excel(
-                        #    f"{filepath}/command (1).xlsx",  # real file
-                           f"{filepath}/command_debug.xlsx",  # XXX debug, change to real file_name # noqa: E501                            
-                           engine="openpyxl",
-                           sheet_name="SequenceConfig",
-                           usecols=["Time", "Instrument", "Command", "Argument"],
-                           header=0,
-                           dtype={"Time": int,
-                                  "Instrument": str,
-                                  "Command": str,
-                                  "Argument": str}
-                           )
+        if filename.endswith(".xlsx"):
+            df = pd.read_excel(
+                        f"{filepath}/{filename}",  # real file
+                        #    f"{filepath}/command_debug.xlsx",  # XXX debug, change to real file_name # noqa: E501                            
+                        engine="openpyxl",
+                        sheet_name="SequenceConfig",
+                        usecols=["Time", "Instrument", "Command", "Argument"],
+                        header=0,
+                        dtype={"Time": int,
+                               "Instrument": str,
+                               "Command": str,
+                               "Argument": str}
+                        )
+        elif filename.endswith(".json"):
+            raise NotImplementedError  # TODO read json
         df.Command = df.Command.str.strip()
     except Exception as e:
-        title = "Errore lettura FILE"
+        title = "Errore lettura FILE EXCEL"
         message = "Errore sui 'tipi' dei valori sulle colonne"
         show_error(title, message, e)
+        sys.exit()
     else:
         print(time.time()-now)  # XXX debug read excel
         check_sequence(df)

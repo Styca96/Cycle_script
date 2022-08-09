@@ -3,7 +3,7 @@ import time
 import tkinter as tk
 from datetime import datetime
 from os import popen
-from tkinter import ttk
+from tkinter import messagebox, ttk
 from types import NoneType
 from typing import Iterable
 
@@ -11,12 +11,16 @@ import pandas as pd
 import pyvisa
 
 from libraries.Chamber import ACS_Discovery1200
-from libraries.check_sequence import get_data
 from libraries.Connection import Charger
+from libraries.infer_data import get_data
 from libraries.other_SCPI import CHROMA, HP6032A, ITECH, MSO58B
 
 # if True usa CONNECTION STRING, else open GUI for selection
-default = False
+if messagebox.askyesno("Configuration",
+                       "Use DEFAULT configuration?"):
+    default = True
+else:
+    default = False
 # DEFAULT CONNECTION STRING
 ITECH_ADDRESS = "TCPIP0::192.168.0.102::30000::SOCKET"
 CHROMA_ADDRESS = "TCPIP0::192.168.0.101::2101::SOCKET"
@@ -29,7 +33,7 @@ ARM_XL_ADDRESS = {"host": "192.168.0.103",
 
 
 rm = pyvisa.ResourceManager()
-
+FILENAME = "command.xlsx"
 
 class Select_GUI(tk.Tk):
     def __init__(self, title: str, mode="SCPI"):
@@ -157,7 +161,7 @@ def parse_command(command: str, args: str):
 
 
 # ----- GET DATA ----- #
-lenght, list_of_time, list_of_instr, list_of_command, list_of_args = get_data()
+lenght, list_of_time, list_of_instr, list_of_command, list_of_args = get_data(filename=FILENAME)
 
 # ----- Connecting ----- #
 # ITECH

@@ -35,6 +35,7 @@ ARM_XL_ADDRESS = {"host": "192.168.0.103",
 rm = pyvisa.ResourceManager()
 FILENAME = "command.xlsx"
 
+
 class Select_GUI(tk.Tk):
     def __init__(self, title: str, mode="SCPI"):
         super().__init__()

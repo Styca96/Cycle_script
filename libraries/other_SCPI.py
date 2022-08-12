@@ -1,7 +1,9 @@
-
+import datetime
 import logging
-from typing import Literal, Type, Union
+import time
+from typing import Callable, Iterable, Literal, Type, Union
 
+import numpy as np
 import pyvisa
 
 _logger = logging.getLogger()
@@ -18,7 +20,7 @@ class Instrument:
         self.connection = False
 
     def __str__(self) -> str:
-        return f"Instrument string({self._instrument})"
+        return f"Instr: {self._instrument}"
 
     def connect(self, id_string: str):
         """Si connette allo strumento\n
@@ -218,6 +220,7 @@ class ITECH(Instrument):
         'function': ('voltage', 'current'),
         'mode': ('fixed', 'list', 'battery', 'solar', 'carprofile'),
     }
+    TIMESTEP = 0.5
 
     def __init__(self, setup: dict = {}, dataconfig: dict = {}):
         super().__init__()
@@ -288,9 +291,37 @@ class ITECH(Instrument):
     def set_mode(self, value: str = 'fixed'):
         self._instrument.write(f"FUNCtion:MODE {value}")
 
+    def __gradient_setpoint(self, target: Callable,
+                            values: Iterable, timer: float):  # VERIFY gradient
+        n_step = len(values)
+        start = time.time()
+        for i in range(0, n_step):
+            now = time.time()
+            target(values[i])
+            while (time.time() <= (now + self.TIMESTEP) and
+                   (time.time() - start) < timer):
+                continue
+
     # # --- cc mode --- # #
-    def set_current(self, value: int | float):
-        self._instrument.write(f'CURRent {value}')
+    def set_current(self, value: int | float,
+                    time_to_set: None | float = None):  # VERIFY time_to_set
+        if time_to_set:
+            if time_to_set <= 1:  # condition to set immediate final value
+                self._instrument.write(f'CURRent {value}')
+            else:
+                import threading
+
+                assert isinstance(time_to_set, float | int)
+                start_value = self._instrument.query_ascii_values("CURR?")
+                target = self.set_current
+                step = (value - start_value) / (time_to_set / self.TIMESTEP)
+                values = np.arange(start_value, value, step).tolist() + [value]
+                t = threading.Thread(target=self.__gradient_setpoint,
+                                     args=(target, values, time_to_set),
+                                     daemon=True)
+                t.start()
+        else:
+            self._instrument.write(f'CURRent {value}')
 
     def set_v_limit(self, v_neg: float, v_pos: float):
         """Setta i valori limiti di tensione per la CC mode\n
@@ -301,8 +332,24 @@ class ITECH(Instrument):
         self._instrument.write(f'VOLTage:LIMit:POSitive {v_pos}')
 
     # # --- cv mode --- # #
-    def set_voltage(self, value: int | float):
-        self._instrument.write(f'VOLTage {value}')
+    def set_voltage(self, value: int | float, time_to_set: None | int = None):  # VERIFY time_to_set # noqa: E501
+        if time_to_set:
+            if time_to_set <= 1:  # condition to set immediate final value
+                self._instrument.write(f'CURRent {value}')
+            else:
+                import threading
+
+                assert isinstance(time_to_set, float | int)
+                start_value = self._instrument.query_ascii_values("VOLT?")
+                target = self.set_voltage
+                step = (value - start_value) / (time_to_set / self.TIMESTEP)
+                values = np.arange(start_value, value, step).tolist() + [value]
+                t = threading.Thread(target=self.__gradient_setpoint,
+                                     args=(target, values, time_to_set),
+                                     daemon=True)
+                t.start()
+        else:
+            self._instrument.write(f'VOLTage {value}')
 
     def set_c_limit(self, i_neg: float, i_pos: float):
         """Setta i valori limiti di corrente per la CV mode\n
@@ -321,7 +368,7 @@ class ITECH(Instrument):
         v, c, p, _, _ = self._instrument.query("FETch:SCALar?")
         return v, c, p
 
-    # def set_setup(self, setup:dict): # TODO tutte impostazioni setup ITECH
+    # def set_setup(self, setup:dict): # NEW FEATURE tutte impostazioni setup ITECH
     #   """Impostazioni di setup\n
     #   Args:
     #       setup_option (dict): dizionario delle impostazioni"""
@@ -427,7 +474,7 @@ class CHROMA(Instrument):
         pass
 
     # ----- predefine CHROMA ----- #
-    def europe_grip(self):
+    def europe_grid(self):
         self.set_frequency(50.0)
         self.set_voltage(230.0, "ac")
 
@@ -467,10 +514,10 @@ class CHROMA(Instrument):
         return frequency, voltage, current, power, pf
 
     COMMAND = ["set_output", "set_frequency", "set_voltage",
-               "europe_grip", "usa_grid"]
+               "europe_grid", "usa_grid"]
 
 
-class HP6032A(Instrument):  # VERIFY try this instrument
+class HP6032A(Instrument):
 
     def __init__(self, setup: dict = {}, dataconfig: dict = {}) -> None:
         super().__init__()
@@ -548,9 +595,126 @@ class HP6032A(Instrument):  # VERIFY try this instrument
             raise KeyError("misura non disponibile\nSeleziona tra"
                            " 'current' o 'voltage'")
     # ----- all COMMAND -----#
-    COMMAND = ["set_output", "set_current", "set_voltage"]  # TODO add all useful command
+    COMMAND = ["set_output", "set_current", "set_voltage"]
 
 
-instrument: dict[str, Union[Type[ITECH], Type[CHROMA], Type[HP6032A]]] = {
-    "ITECH": ITECH, "CHROMA": CHROMA, "HP6032A": HP6032A
-    }
+class MSO58B(Instrument):  # VERIFY try this instrument
+    typeOfInstrument = "Oscilloscope"
+    manufactor = "Tektronik"
+    measure = None  # NEW FEATURE measure options
+    # SOCKET port is 4000
+
+    # ACTONEVent:MASKFail:ACTION:SAVEIMAGe:STATE Save a screen capture when a
+    #   mask test fails.
+    # ACTONEVent:MASKHit:ACTION:SAVEIMAGe:STATE Saves a screen capture when a
+    #   mask hit occurs.
+
+    # ACQuire:STATE Starts, stops, or returns acquisition state.
+
+    # SAVEONEVent:FILEDest Sets or queries the file path.
+    # SAVEONEVent:FILEName Sets or queries the file name without the extension.
+    # SAVEONEVent:IMAGe:FILEFormat Sets or returns the file extension
+    #   (png, jpg, bmp).
+
+    # FILESystem:READFile Copies the named file to the interface.
+
+    # SAVe:IMAGe Saves a capture of the screen contents to the specified
+    #   image file.
+
+    # SAVEON:FILE:DEST Sets or queries the location where files are saved.
+    # SAVEON:FILE:NAME Sets or queries the file name to use when
+    #   SAVEON:TRIGer is ON.
+    # SAVEON:IMAGe:FILEFormat Sets or queries the file format to be used for
+    #   saved image files.
+    # SAVEON:IMAGe Sets or queries whether to save a screen capture when
+    #   a trigger occurs.
+    # SAVEON:TRIGger Sets or queries whether to save a file when
+    #   a trigger occurs.
+
+    # *OPC Generates the operation complete message in the standard event
+    #   status register when all pending operations are finished Or
+    #   returns “1” when all current operations are finished.
+
+    def __init__(self, setup: dict = {}, dataconfig: dict = {}):
+        super().__init__()
+        self._setup = setup
+        self._dataconfig = dataconfig
+
+    @property
+    def setup(self):
+        return self._setup_option
+
+    @setup.setter
+    def setup(self, value: dict):
+        assert isinstance(value, dict)
+        self._setup_option = value
+
+    @property
+    def dataconfig(self):
+        return self._dataconfig
+
+    @dataconfig.setter
+    def dataconfig(self, value: dict):
+        assert isinstance(value, dict)
+        self._dataconfig = value
+
+    def set_terminator(self) -> str:
+        """Setta carattere terminatore sia in scrittura che in lettura"""
+        self._instrument.read_termination = "\n"
+        self._instrument.write_termination = "\n"
+        return "read_terminator:\t \\n\nwrite_terminator:\t \\n"
+
+    # ----- Configuration function ----- #
+    def ResetConfig(self):
+        """Reset e configura strumento"""
+        self.set_cls()
+        self.set_rst()
+        self.get_idn()
+        self.set_terminator()
+
+        self.config()
+
+    def config(self):  # FIXME if add some default command
+        """Configurazione setup e measurement"""
+        self.set_setup(self.setup)
+        # self.set_data_configuration(self.dataconfig)
+
+    # ----- function MSO58B ----- #
+    # ----- predefine MSO58B ----- #
+    def save_screen(self, filepath: str = "default"):
+        dt = datetime.datetime.now()
+        if filepath == "default":
+            filepath = dt.strftime("OSC/MSO58B_%Y%m%d-%H%M%S.png")
+        else:
+            filepath = dt.strftime(f"{filepath}_%Y%m%d-%H%M%S.png")
+        self.write_command('SAVE:IMAGe \"C:/Temp.png\"')
+        self.query_command("*OPC?")
+        self.write_command('FILESystem:READFile \"C:/Temp.png\"')
+        imgData = self._instrument.read_raw(1024*1024)
+
+        with open(filepath, "wb") as file:
+            file.write(imgData)
+
+        self.write_command('FILESystem:DELEte \"C:/Temp.png\"')
+
+    # ----- status and reading ----- #
+    # ----- all COMMAND -----#
+    COMMAND = ["save_screen"]
+
+
+instrument: dict[str, Union[Type[ITECH],
+                            Type[CHROMA],
+                            Type[HP6032A],
+                            Type[MSO58B]]] = {
+                                                "ITECH": ITECH,
+                                                "CHROMA": CHROMA,
+                                                "HP6032A": HP6032A,
+                                                "MSO58B": MSO58B
+                                                }
+
+
+# if __name__ == "__main__":
+#     osc = MSO58B()
+#     osc.connect("TCPIP0::192.168.0.106::inst0::INSTR")
+
+#     osc.save_screen("C:\\Users\\ITSAGON\\image")

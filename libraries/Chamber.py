@@ -132,7 +132,7 @@ class ACS_Discovery1200(ModbusClient):
 
     def __str__(self):
         modbus = super().__str__()
-        return f"Angelantoni ACS Discovery D1200 - {modbus}"
+        return f"ACS Discovery D1200 - {modbus}"
 
     # @classmethod   # to set class property, but instance writable
     @property
@@ -201,7 +201,7 @@ class ACS_Discovery1200(ModbusClient):
         self.hum_control = False
         return rr
 
-    def stop(self) -> bool:
+    def stop_temp_hum(self) -> bool:
         """Disattiva tutti i controlli della camera\n
         Returns:
             bool: 'True' se presente un errore. 'False' altrimenti
@@ -275,7 +275,8 @@ class ACS_Discovery1200(ModbusClient):
         return self.__read_bit(address, bit)
 
     def __read_float(self, address: int) -> tuple[bool, float]:
-        """Legge il registro selezionato più il seguente e restituisce un float\n
+        """Legge il registro selezionato più il seguente e restituisce un
+        float\n
         Args:
             address (int): primo indirizzo da leggere\n
         Returns:
@@ -474,7 +475,7 @@ class ACS_Discovery1200(ModbusClient):
         return data
 
     COMMAND = ['start_temp', 'stop_temp', 'start_hum', 'stop_hum',
-               'start_temp_hum', 'stop', 'write_setpoint']
+               'start_temp_hum', 'stop_temp_hum', 'write_setpoint']
 
 
 class Sauter_PLC(ModbusClient):  # VERIFY da verificare funzionamento classe

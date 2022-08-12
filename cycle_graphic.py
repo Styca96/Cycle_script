@@ -2,15 +2,26 @@
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import matplotlib.style as mplstyle
+import matplotlib.ticker as mpltick
 import numpy as np
 # import matplotlib.transforms as mtrans
 import pandas as pd
 
 from libraries.infer_data import get_data
 
+
+class MyLocator(mpltick.AutoMinorLocator):
+    """AutoMinorLocator with 5 tick"""
+
+    def __init__(self, n=5) -> None:
+        super().__init__(n=n)
+
+
 # mplstyle options
 mplstyle.use("seaborn-darkgrid")
 plt.rcParams["axes.grid.axis"] = "x"
+plt.rcParams["xtick.minor.bottom"] = True
+mpltick.AutoMinorLocator = MyLocator
 
 ##########################################################
 # # -------------------- get data -------------------- # #
@@ -75,10 +86,14 @@ fig, (ax_ch, ax_arm, ax_ac, ax_dc) = plt.subplots(
 fig.set_tight_layout(
     {"pad": 0.5, "w_pad": 0.1, "h_pad": 0.1, "rect": None}
     )
-# TIME = parse(TIME_SEC, [None])[0][0:2]  # for future parsing time
-# fig = plt.figure()
-# gs = fig.add_gridspec(4, hspace=0)
-# ax_arm, ax_arm, ax_ac, ax_dc = gs.subplots(sharex=True, sharey=False)
+plt.minorticks_on()
+ax_ch.grid(True, which='minor', axis='x', linestyle=':')
+ax_arm.grid(True, which='minor', axis='x', linestyle=':')
+ax_ac.grid(True, which='minor', axis='x', linestyle=':')
+ax_dc.grid(True, which='minor', axis='x', linestyle=':')
+ax_dc.tick_params(axis="x", which="both", colors="black")
+date_form = mdates.DateFormatter("%H:%M:%S")
+ax_dc.xaxis.set_major_formatter(date_form)
 
 #########################################################
 # # -------------------- chamber -------------------- # #
@@ -122,14 +137,10 @@ for i in args:
 
 # plot
 cycle = iter(plt.rcParams['axes.prop_cycle'].by_key()['color'])
-# ax_ch.set_xlim(TIME)
 # ax_ch.set_ylim(-50, 120) # fixed Temp limit
 # ax_ch.set_xmargin(5)
 ax_ch2 = ax_ch.twinx()
-# ax_ch.set_title("Chamber")
-# ax_ch.set_title("Chamber", rotation='vertical',  y=0, x=-0.06)
-# ax_ch.set_ylabel("T")
-ax_ch.set_ylabel("Chamber\nT")
+ax_ch.set_ylabel("Chamber\n°C")
 ax_ch2.set_ylabel("H%")
 # ax_ch.yaxis.set_label_coords(-0.1, 4/2)
 p1, = ax_ch.step(*parse(time_, temp), where="post", label="T",
@@ -152,8 +163,10 @@ df_arm_set = pd.concat([df_arm, df_arm_out]).drop_duplicates(keep=False)
 # df_arm_set = df_arm.drop(df_arm_out.index)
 time_v = [0]
 time_p = [0]
+time_r = [0]
 v_setpoint = [None]  # add base value
 p_setpoint = [None]  # add base value
+r_setpoint = [None]  # add base value
 for abs_time, cmd, value in zip(df_arm_set.AbsTime.index,
                                 df_arm_set.Command,
                                 df_arm_set.Argument):
@@ -169,27 +182,31 @@ for abs_time, cmd, value in zip(df_arm_set.AbsTime.index,
     elif cmd.endswith("voltage.sh"):
         time_v.append(df.AbsTime[abs_time-1])
         v_setpoint.append(int(values[0])/10)
+    elif cmd.endswith("reactive.sh"):
+        time_r.append(df.AbsTime[abs_time-1])
+        if int(values[0]) > 32000:
+            r_setpoint.append((int(values[0])-32768)/-10)
+        else:
+            r_setpoint.append(int(values[0])/10)
 
 # plot
-# ax_arm.set_xlim(TIME)
 # ax_arm.set_xmargin(5)
 ax_arm2 = ax_arm.twinx()
 ax_arm3 = ax_arm.twinx()
-# ax_arm.set_title("ARMxl")
-# ax_arm.set_title("ARMxl", rotation='vertical',  y=0, x=-0.06)
-# ax_arm.set_ylabel("V")
 ax_arm.set_ylabel("ARMxl\nV")
-ax_arm2.set_ylabel("S")
+ax_arm2.set_ylabel("kVA or kVAR")
 ax_arm3.set_ylabel("State")
 # ax_arm.yaxis.set_label_coords(-0.1, 4/2)
 p1, = ax_arm.step(*parse(time_v, v_setpoint), where="post", label="V",
-                  color=next(cycle), alpha=.5)
+                  color=next(cycle), alpha=.7)
 p2, = ax_arm2.step(*parse(time_p, p_setpoint), where="post", label="S",
-                   color=next(cycle), alpha=.5)
+                   color=next(cycle), alpha=.7)
+p2b, = ax_arm2.step(*parse(time_r, r_setpoint), where="post", label="Q",
+                    color=next(cycle), alpha=.7)
 p3, = ax_arm3.step(*parse(time_out, output), where="post", label="State",
-                   color=next(cycle), alpha=.5, linestyle="dashdot")
+                   color=next(cycle), alpha=.7, linestyle="dashdot")
 set_spines(ax_arm3)
-lns = [p1, p2, p3]
+lns = [p1, p2, p2b, p3]
 leg = ax_arm3.legend(handles=lns, loc='upper right')
 leg.set_draggable(True)
 
@@ -227,23 +244,19 @@ for abs_time, cmd, value in zip(df_ac_set.AbsTime.index,
         time_f.append(df.AbsTime[abs_time-1])
 
 # plot
-# ax_ac.set_xlim(TIME)
 # ax_arm.set_xmargin(5)
 ax_ac2 = ax_ac.twinx()
 ax_ac3 = ax_ac.twinx()
-# ax_ac.set_title("AC Source")
-# ax_ac.set_title("AC Source", rotation='vertical',  y=0, x=-0.06)
-# ax_ac.set_ylabel("V")
 ax_ac.set_ylabel("AC Source\nV")
 ax_ac2.set_ylabel("Hz")
 ax_ac3.set_ylabel("State")
 # ax_ac.yaxis.set_label_coords(-0.1, 4/2)
 p1, = ax_ac.step(*parse(time_v, v_setpoint), where="post", label="V",
-                 color=next(cycle), alpha=.5)
+                 color=next(cycle), alpha=.7)
 p2, = ax_ac2.step(*parse(time_f, f_setpoint), where="post", label="Freq",
-                  color=next(cycle), alpha=.5)
+                  color=next(cycle), alpha=.7)
 p3, = ax_ac3.step(*parse(time_, output), where="post", label="State",
-                  color=next(cycle), alpha=.5, linestyle="dashdot")
+                  color=next(cycle), alpha=.7, linestyle="dashdot")
 set_spines(ax_ac3)
 lns = [p1, p2, p3]
 leg = ax_ac3.legend(handles=lns, loc='upper right')
@@ -269,7 +282,6 @@ ih_setpoint = [None]  # add base value
 il_setpoint = [None]  # add base value
 mode = None
 # plot messi prima per stampare i MODE in ax3 = state
-# ax_dc.set_xlim(TIME)
 # ax_arm.set_xmargin(5)
 ax_dc2 = ax_dc.twinx()
 ax_dc3 = ax_dc.twinx()
@@ -314,7 +326,8 @@ for abs_time, cmd, value in zip(df_dc_set.AbsTime.index,
         if len(split_val) == 2:
             start_time = val_time[-1]
             time_to_set = int(split_val[1])
-            start_value = next(item for item in val_list[::-1] if item is not None)
+            start_value = next(item for item in val_list[::-1]
+                               if item is not None)
             final_value = int(split_val[0])
             step = (final_value - start_value) / (time_to_set / 0.5)
             values = np.arange(start_value, final_value, step
@@ -338,30 +351,26 @@ for abs_time, cmd, value in zip(df_dc_set.AbsTime.index,
         time_il.append(df.AbsTime[abs_time-1])
 
 # continue plot
-# ax_dc.set_title("DC Source")
-# ax_dc.set_title("DC Source", rotation='vertical',  y=0, x=-0.06)
-# ax_dc.set_ylabel("V")
 ax_dc.set_ylabel("DC Source\nV")
-ax_dc2.set_ylabel("I")
+ax_dc2.set_ylabel("A")
 ax_dc3.set_ylabel("State")
 # ax_dc.yaxis.set_label_coords(-0.1, 4/2)
 p1, = ax_dc.step(*parse(time_vh, vh_setpoint), where="post", label="V/Vhigh",
-                 color=next(cycle), alpha=.5)
+                 color=next(cycle), alpha=.7)
 p1b, = ax_dc.step(*parse(time_vl, vl_setpoint), where="post", label="Vlow",
-                  color=next(cycle), alpha=.5, linestyle="dashed")
+                  color=next(cycle), alpha=.7, linestyle="dashed")
 p2, = ax_dc2.step(*parse(time_ih, ih_setpoint), where="post", label="I/I+",
-                  color=next(cycle), alpha=.5)
+                  color=next(cycle), alpha=.7)
 p2b, = ax_dc2.step(*parse(time_il, il_setpoint), where="post", label="I-",
-                   color=next(cycle), alpha=.5, linestyle="dashed")
+                   color=next(cycle), alpha=.7, linestyle="dashed")
 p3, = ax_dc3.step(*parse(time_, output), where="post", label="State",
-                  color=next(cycle), alpha=.5, linestyle="dashdot")
+                  color=next(cycle), alpha=.7, linestyle="dashdot")
 set_spines(ax_dc3)
 lns = [p1, p1b, p2, p2b, p3]
 leg = ax_dc3.legend(handles=lns, loc="upper right")
 leg.set_draggable(True)
 
 
-date_form = mdates.DateFormatter("%H:%M:%S")
-ax_dc.xaxis.set_major_formatter(date_form)
+# ----- show plot ----- #
 plt.show()
 pass

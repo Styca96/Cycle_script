@@ -45,11 +45,22 @@ _logger = logging.getLogger(__name__)
 ###############################
 # ----- DEFAULT OPTIONS ----- #
 ###############################
+# DEFAULT CONNECTION STRING
+ITECH_ADDRESS = "TCPIP0::192.168.0.102::30000::SOCKET"
+CHROMA_ADDRESS = "TCPIP0::192.168.0.101::2101::SOCKET"
+CHAMBER_ADDRESS = "COM3"
+HP6032A_ADDRESS = "GPIB::5::INSTR"
+MSO58B_ADDRESS = "TCPIP0::192.168.0.106::inst0::INSTR"
+ARM_XL_ADDRESS = {"host": "192.168.0.103",
+                  "user": "root",
+                  "pwd": "ABB"}
+
+FILENAME = "command.xlsx"
+
 # if True usa CONNECTION STRING, else open GUI for selection
 if messagebox.askyesno("Configuration",
                        "Use DEFAULT configuration?"):
     default = True
-    FILENAME = "command.xlsx"
     _logger.info("Use default configuration")
 else:
     default = False
@@ -67,15 +78,6 @@ else:
     FILENAME = filedialog.askopenfilename(**fileoption)
     _logger.info(f"Select {FILENAME}")
 
-# DEFAULT CONNECTION STRING
-ITECH_ADDRESS = "TCPIP0::192.168.0.102::30000::SOCKET"
-CHROMA_ADDRESS = "TCPIP0::192.168.0.101::2101::SOCKET"
-CHAMBER_ADDRESS = "COM3"
-HP6032A_ADDRESS = "GPIB::5::INSTR"
-MSO58B_ADDRESS = "TCPIP0::192.168.0.106::inst0::INSTR"
-ARM_XL_ADDRESS = {"host": "192.168.0.103",
-                  "user": "root",
-                  "pwd": "ABB"}
 
 rm = pyvisa.ResourceManager()
 

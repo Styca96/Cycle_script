@@ -35,8 +35,8 @@ def get_data(all_data=False, filename: str = "command.xlsx", logger=None):
     try:
         if filename.endswith(".xlsx"):
             df = pd.read_excel(
-                        # f"{filepath}/{filename}",  # real file
-                        f"{filepath}/command_debug.xlsx",  # XXX debug, change to real file_name # noqa: E501
+                        f"{filepath}/{filename}",  # real file
+                        # f"{filepath}/command_debug.xlsx",  # XXX debug, change to real file_name # noqa: E501
                         engine="openpyxl",
                         sheet_name="SequenceConfig",
                         usecols=["Time", "Instrument", "Command", "Argument"],
@@ -79,7 +79,7 @@ def add_sequence(df: pd.DataFrame, logger) -> pd.DataFrame:
     try:
         sequence_df = df[df.Instrument == "Sequence"].copy()
         if sequence_df.__len__() == 0:
-            return
+            return df
 
         def f(index, name):
             path_ = USER_SEQUENCE_DIR + f"{name}.yaml"

@@ -29,7 +29,7 @@ instr_dict = {
     }
 
 
-def get_data(all_data=False, filename: str = "command.xlsx"):
+def get_data(all_data=False, filename: str = "command.xlsx", logger=None):
     now = time.time()  # XXX debug read excel
     filepath = path.dirname(path.dirname(path.realpath(__file__)))
     try:
@@ -52,12 +52,18 @@ def get_data(all_data=False, filename: str = "command.xlsx"):
     except Exception as e:
         title = "Errore lettura FILE EXCEL"
         message = "Errore sui 'tipi' dei valori sulle colonne"
+        if logger:
+            logger.error(message)
         show_error(title, message, e)
         sys.exit()
     else:
         print(time.time()-now)  # XXX debug read excel
-        check_sequence(df)  # check new write test sequence
-        df = add_sequence(df)  # add base sequence
+        if logger:
+            logger.debug("Checking sequence")
+        check_sequence(df, logger)  # check new write test sequence
+        if logger:
+            logger.debug("Adding basic sequence")
+        df = add_sequence(df, logger)  # add base sequence
         _time = iter(df.Time)
         instr = iter(df.Instrument)
         command = iter(df.Command)
@@ -69,34 +75,43 @@ def get_data(all_data=False, filename: str = "command.xlsx"):
             return lenght, _time, instr, command, args
 
 
-def add_sequence(df: pd.DataFrame) -> pd.DataFrame:
-    sequence_df = df[df.Instrument == "Sequence"].copy()
-    if sequence_df.__len__() == 0:
-        return
+def add_sequence(df: pd.DataFrame, logger) -> pd.DataFrame:
+    try:
+        sequence_df = df[df.Instrument == "Sequence"].copy()
+        if sequence_df.__len__() == 0:
+            return
 
-    def f(index, name):
-        path_ = USER_SEQUENCE_DIR + f"{name}.yaml"
-        with open(path_, "r") as f:
-            sq = pd.DataFrame(yaml.safe_load(f))
-        return (index, sq)
+        def f(index, name):
+            path_ = USER_SEQUENCE_DIR + f"{name}.yaml"
+            with open(path_, "r") as f:
+                sq = pd.DataFrame(yaml.safe_load(f))
+            return (index, sq)
 
-    sq_list = [
-        f(x, y) for x, y in zip(sequence_df.index, sequence_df["Command"])
-        ]
+        sq_list = [
+            f(x, y) for x, y in zip(sequence_df.index, sequence_df["Command"])
+            ]
 
-    new_df = df.copy()
-    for i, sq_cmd in sq_list:
-        if i == 0:
-            new_df = pd.concat([sq_cmd, new_df.loc[i+1:]])
-        elif i == df.index[-1]:
-            new_df = pd.concat([new_df.loc[:i-1], sq_cmd])
-        else:
-            new_df = pd.concat([new_df.loc[:i-1], sq_cmd, new_df.loc[i+1:]])
+        new_df = df.copy()
+        for i, sq_cmd in sq_list:
+            if i == 0:
+                new_df = pd.concat([sq_cmd, new_df.loc[i+1:]])
+            elif i == df.index[-1]:
+                new_df = pd.concat([new_df.loc[:i-1], sq_cmd])
+            else:
+                new_df = pd.concat([new_df.loc[:i-1], sq_cmd, new_df.loc[i+1:]])
 
-    return new_df.reset_index(drop=True)
+        return new_df.reset_index(drop=True)
+    
+    except Exception as e:
+        title = "Base Sequence Error"
+        message = "Errore adding SEQUENCE"
+        if logger:
+            logger.error(message)
+        show_error(title, message, e)
+        raise e        
 
 
-def check_sequence(df: pd.DataFrame):
+def check_sequence(df: pd.DataFrame, logger):
     try:
         # check time
         _time = df.Time.copy()
@@ -145,6 +160,8 @@ def check_sequence(df: pd.DataFrame):
     except Exception as e:
         title = "Errore FILE"
         message = "Errore colonne del file di comando"
+        if logger:
+            logger.error(message)
         show_error(title, message, e)
         raise e
     # TODO creare dizionario strumento, comando, tipo parametro e fare check

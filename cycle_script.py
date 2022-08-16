@@ -1,9 +1,11 @@
+import logging
+import os
 import socket
+import threading
 import time
 import tkinter as tk
 from datetime import datetime
-from os import popen
-from tkinter import messagebox, ttk
+from tkinter import filedialog, messagebox, ttk
 from types import NoneType
 from typing import Iterable
 
@@ -15,12 +17,56 @@ from libraries.Connection import Charger
 from libraries.infer_data import get_data
 from libraries.other_SCPI import CHROMA, HP6032A, ITECH, MSO58B
 
+###############################
+# ----- LOGGING OPTIONS ----- #
+###############################
+log_file = (f"{os.path.dirname(os.path.abspath(__file__))}/log.log")
+logging.basicConfig(
+    encoding='utf-8', level=logging.DEBUG,
+    format='%(asctime)-19s %(name)-11s %(levelname)-8s:'
+    ' %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    filename=log_file,
+    filemode='w',
+    )
+# create handler console
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+formatter = logging.Formatter('%(name)-15s %(levelname)-8s:'
+                              ' %(message)s')
+console.setFormatter(formatter)
+logging.getLogger('').addHandler(console)
+# change level for 3rd party module
+for i in ['pandas', 'PIL', 'pyvisa']:
+    logger = logging.getLogger(i)
+    logger.setLevel(logging.INFO)
+_logger = logging.getLogger(__name__)
+
+###############################
+# ----- DEFAULT OPTIONS ----- #
+###############################
 # if True usa CONNECTION STRING, else open GUI for selection
 if messagebox.askyesno("Configuration",
                        "Use DEFAULT configuration?"):
     default = True
+    FILENAME = "command.xlsx"
+    _logger.info("Use default configuration")
 else:
     default = False
+    fileoption = dict(
+        title="Please select a file:",
+        defaultextension="*.xlsx",
+        filetypes=[
+            ("Tutti i file", "*.*"),
+            ("Sequenza Comandi", "*.xlsx"),
+            ("File di configigurazione", "*.json"),
+            ("Tutti i File Excel", "*.xl*")
+            ],
+        )
+    _logger.debug("Selecting sequence file")
+    FILENAME = filedialog.askopenfilename(**fileoption)
+    _logger.info(f"Select {FILENAME}")
+
 # DEFAULT CONNECTION STRING
 ITECH_ADDRESS = "TCPIP0::192.168.0.102::30000::SOCKET"
 CHROMA_ADDRESS = "TCPIP0::192.168.0.101::2101::SOCKET"
@@ -31,12 +77,75 @@ ARM_XL_ADDRESS = {"host": "192.168.0.103",
                   "user": "root",
                   "pwd": "ABB"}
 
-
 rm = pyvisa.ResourceManager()
-FILENAME = "command.xlsx"
+
+
+###################################
+# ----- CLASS and FUNCTIONS ----- #
+###################################
+class ShowInfo(tk.Toplevel):
+    """Info and Skip Toplevel"""
+
+    def __init__(self, parent=None, event: threading.Event = None):
+        super().__init__()
+        self.title("Sequence Info")
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.geometry("400x210")
+
+        self.skip_event = event
+
+        main_frm = tk.Frame(self)
+        main_frm.pack(expand=1, fill="both")
+
+        tk.Label(main_frm, text="INFO"
+                 ).grid(row=0, column=0, columnspan=2, padx=10, pady=10)
+        tk.Label(main_frm, text="Instrument:\t"
+                 ).grid(row=1, column=0, padx=5, pady=10)
+        tk.Label(main_frm, text="Command:\t"
+                 ).grid(row=2, column=0, padx=5, pady=10)
+        tk.Label(main_frm, text="Time:\t\t"
+                 ).grid(row=3, column=0, padx=5, pady=10)
+
+        self.instr_lbl = tk.Label(main_frm, text="None")
+        self.instr_lbl.grid(row=1, column=1, padx=5)
+        self.command_lbl = tk.Label(main_frm, text="None")
+        self.command_lbl.grid(row=2, column=1, padx=5)
+        self.time_lbl = tk.Label(main_frm, text="None")
+        self.time_lbl.grid(row=3, column=1, padx=5)
+
+        self.skip_btn = tk.Button(main_frm, text="  SKIP  ", command=self.skip)
+        self.skip_btn.grid(row=4, column=0, columnspan=2, padx=10, pady=10)
+
+    def skip(self):
+        self.skip_event.set()
+        _logger.info("Skipping...")
+        self.skip_btn.grid_forget()
+        self.update()
+        self.after(1000, self.skip_btn.grid(
+            row=4, column=0, columnspan=2, padx=10, pady=10
+            ))
+
+    def update_text(self, instr: str, command: str, time: str):
+        self.instr_lbl.configure(text=instr)
+        self.command_lbl.configure(text=command)
+        self.time_lbl.configure(text=time)
+        _logger.debug(f"{instr} - {command}")
+
+    def mainloop(self):
+        self.master.iconify()
+        super().mainloop()
+
+    def on_closing(self):
+        if messagebox.askyesno("Closing", "Are you sure?"):
+            self.destroy()
+            self.master.destroy()
+        else:
+            return
 
 
 class Select_GUI(tk.Tk):
+    """Address Selection"""
+
     def __init__(self, title: str, mode="SCPI"):
         super().__init__()
         self.title(title + " ADDRESS")
@@ -71,7 +180,7 @@ class Select_GUI(tk.Tk):
                         for comport in serial.tools.list_ports.comports()]
             instrument_list = com_list
         elif self.mode == "IP":
-            result = popen("arp -a")
+            result = os.popen("arp -a")
             instrument_list = [j for i in result.read().splitlines()
                                for j in (i.split(" ")) if j != "" and "." in j]
         elif self.mode == "str":
@@ -84,12 +193,16 @@ class Select_GUI(tk.Tk):
 
 
 def show_options(name: str, mode: str):
+    """Show options and get result"""
+    _logger.debug(f"Getting {name} address")
     root = Select_GUI(name, mode)
-    # root.mainloop()
-    return root.val.get()
+    add = root.val.get()
+    _logger.info(f"{name} address = {add}")
+    return add
 
 
 def arg_parse(arg_str):
+    """Parsing argument from str type"""
     import ast
     if isinstance(arg_str, pd._libs.missing.NAType | NoneType):
         return None
@@ -118,53 +231,24 @@ def arg_parse(arg_str):
 
 
 def parse_command(command: str, args: str):
+    """Parse command for ARMxl"""
     if not isinstance(args, str):
         args = str(args)
     base_cmd = "nohup ./"
     cmd = base_cmd + command + " " + args + " & >/dev/null\n"
     return cmd
 
-# ----- COMMAND DESCRIPTIONS ----- #
-# CHAMBER command
-# 'start_temp' no param
-# 'stop_temp' no param
-# 'start_hum' no param
-# 'stop_hum' no param
-# 'start_temp_hum' no param
-# 'stop' no param
-# 'write_setpoint' ["Temp" | "Hum"], <value>, <time_to_set>=None
 
-# ITECH command
-# "set_output" ["on" | "off"]
-# "set_function"  ["voltage" | "current"]
-# "set_current" <value>
-# "set_v_limit" <value>, <value>
-# "set_voltage" <value>
-# "set_c_limit" <value>, <value>
-
-# CHROMA command
-# "set_output" ["on" | "off"]
-# "set_frequency"  <value>
-# "set_voltage"  <value>, ["ac" | "dc"]="ac"
-# "europe_grip" no param
-# "usa_grid" no param
-
-# CHARGER command
-# "command on the SSH client without ./" "additional param"
-
-# HP6032A
-# "set_current" <value>
-# "set_voltage" <value>
-# "set_output" ["on" | "off"]
-
-# MSO58B
-# "save_screen" <filepath>
-
-
+########################
 # ----- GET DATA ----- #
-lenght, list_of_time, list_of_instr, list_of_command, list_of_args = get_data(filename=FILENAME)
+########################
+_logger.debug("Getting data, check new sequence, add basic sequence")
+lenght, list_of_time, list_of_instr, list_of_command, list_of_args = get_data(filename=FILENAME, logger=_logger)
 
+##########################
 # ----- Connecting ----- #
+##########################
+_logger.debug("Connecting all item...")
 # ITECH
 address = show_options("ITECH", "SCPI") if default is False else ITECH_ADDRESS
 if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
@@ -211,6 +295,7 @@ try:
 except socket.error:
     arm_xl = None
 
+_logger.info("All items connected")
 instruments = {
     "dc_source": itech,
     "ac_source": chroma,
@@ -221,42 +306,65 @@ instruments = {
     "sleep": "sleep",
     }
 
+
+###############################
 # ----- EXECUTE COMMAND ----- #
-for i in range(lenght):
-    now = time.time()
-    time_ = datetime.now().strftime("%d/%m/%Y %H:%M:%S - ")
-    rel_time = next(list_of_time)
-    instr = instruments.get(next(list_of_instr).lower())
-    # --- ARMxl command --- #
-    if instr == arm_xl:
-        command = next(list_of_command)
-        args = next(list_of_args)
-        cmd = parse_command(command, args)
-        print(time_, instr, f" - send: {cmd}")
-        instr: Charger
-        instr._shell.send(cmd)
-    # --- sleep command --- #
-    # if instr == "sleep":
-    elif instr == "sleep":
-        print(time_, f"Wait {rel_time} seconds ")
-        _ = next(list_of_command)
-        _ = next(list_of_args)
-    # --- SCPI or MODBUS command --- #
-    # elif instr != "sleep":  # not arm_xl instrument
-    elif instr != arm_xl:  # not arm_xl instrument
-        command = getattr(instr, next(list_of_command).strip())
-        args = arg_parse(next(list_of_args))
-        print(time_, instr, f"send: {command} - ", args)
-        if args is None:
-            command()
-        elif isinstance(args, tuple):
-            command(args)
+###############################
+def run_test():
+    _logger.info("Start sequence test")
+    for i in range(lenght):
+        now = time.time()
+        time_ = datetime.now().strftime("%d/%m/%Y %H:%M:%S - ")
+        skip_event.clear()
+        rel_time = next(list_of_time)
+        instr = instruments.get(next(list_of_instr).lower())
+        # --- ARMxl command --- #
+        if instr == arm_xl:
+            command = next(list_of_command)
+            args = next(list_of_args)
+            cmd = parse_command(command, args)
+            info_box.update_text(instr, cmd, time_)
+            # print(time_, instr, f" - send: {cmd}")
+            instr: Charger
+            instr._shell.send(cmd)
+        # --- sleep command --- #
+        # if instr == "sleep":
+        elif instr == "sleep":
+            info_box.update_text(instr, f"Wait {rel_time} seconds ", time_)
+            # print(time_, f"Wait {rel_time} seconds ")
+            _ = next(list_of_command)
+            _ = next(list_of_args)
+        # --- SCPI or MODBUS command --- #
+        # elif instr != "sleep":  # not arm_xl instrument
+        elif instr != arm_xl:  # not arm_xl instrument
+            command = getattr(instr, next(list_of_command).strip())
+            args = arg_parse(next(list_of_args))
+            info_box.update_text(instr, f"{command} - {args}", time_)
+            # print(time_, instr, f"send: {command} - ", args)
+            if args is None:
+                command()
+            elif isinstance(args, tuple):
+                command(args)
+            else:
+                command(*args)
         else:
-            command(*args)
-    else:
-        print("No Instrument found\nPass to next command without wait")
-        _ = next(list_of_command)
-        _ = next(list_of_args)
-        continue
-    while time.time() - now < rel_time:
-        continue
+            # print("No Instrument found\nPass to next command without wait")
+            _logger.warning("No Instrument found "
+                            "- pass to next command without wait")
+            _ = next(list_of_command)
+            _ = next(list_of_args)
+            continue
+        while time.time() - now < rel_time and not skip_event.is_set():
+            continue
+    info_box.master.destroy()
+
+
+###############################
+# ----- INFO TK and RUN ----- #
+###############################
+skip_event = threading.Event()
+info_box = ShowInfo(event=skip_event)
+t = threading.Thread(target=run_test, daemon=True)
+t.start()
+info_box.mainloop()
+t.join()

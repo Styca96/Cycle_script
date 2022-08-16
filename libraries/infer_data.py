@@ -22,7 +22,9 @@ instr_dict = {
               "start_charge_session.sh": 0,
               "stop_charge_session.sh": 0,
               "set_power.sh": 1,
-              "set_reactive.sh": 1},
+              "set_reactive.sh": 1,
+              "force_fan.sh": 1
+              },
     "oscilloscope": MSO58B,
     "sleep": ["sleep", "-"],
     "sequence": USER_SEQUENCE_DIR

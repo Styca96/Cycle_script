@@ -68,11 +68,10 @@ def get_data(all_data=False, filename: str = "command.xlsx", logger=None):
         instr = iter(df.Instrument)
         command = iter(df.Command)
         args = iter(df.Argument)
-        lenght = df.__len__()
         if all_data:
             return df
         else:
-            return lenght, _time, instr, command, args
+            return df, _time, instr, command, args
 
 
 def add_sequence(df: pd.DataFrame, logger) -> pd.DataFrame:

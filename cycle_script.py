@@ -5,7 +5,7 @@ import threading
 import time
 import tkinter as tk
 from datetime import datetime
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox, scrolledtext, ttk
 from types import NoneType
 from typing import Iterable
 
@@ -88,11 +88,13 @@ rm = pyvisa.ResourceManager()
 class ShowInfo(tk.Toplevel):
     """Info and Skip Toplevel"""
 
-    def __init__(self, parent=None, event: threading.Event = None):
+    def __init__(self, parent=None,
+                 event: threading.Event = None,
+                 data: pd.DataFrame = None):
         super().__init__()
         self.title("Sequence Info")
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
-        self.geometry("400x210")
+        self.geometry("900x280")
 
         self.skip_event = event
 
@@ -101,22 +103,33 @@ class ShowInfo(tk.Toplevel):
 
         tk.Label(main_frm, text="INFO"
                  ).grid(row=0, column=0, columnspan=2, padx=10, pady=10)
-        tk.Label(main_frm, text="Instrument:\t"
+        tk.Label(main_frm, text="Index:\t\t"
                  ).grid(row=1, column=0, padx=5, pady=10)
-        tk.Label(main_frm, text="Command:\t"
+        tk.Label(main_frm, text="Instrument:\t"
                  ).grid(row=2, column=0, padx=5, pady=10)
-        tk.Label(main_frm, text="Time:\t\t"
+        tk.Label(main_frm, text="Command:\t"
                  ).grid(row=3, column=0, padx=5, pady=10)
+        tk.Label(main_frm, text="Time:\t\t"
+                 ).grid(row=4, column=0, padx=5, pady=10)
 
-        self.instr_lbl = tk.Label(main_frm, text="None")
-        self.instr_lbl.grid(row=1, column=1, padx=5)
-        self.command_lbl = tk.Label(main_frm, text="None")
-        self.command_lbl.grid(row=2, column=1, padx=5)
-        self.time_lbl = tk.Label(main_frm, text="None")
-        self.time_lbl.grid(row=3, column=1, padx=5)
+        self.index_lbl = tk.Label(main_frm, text="None", justify="left")
+        self.index_lbl.grid(row=1, column=1, padx=5)
+        self.instr_lbl = tk.Label(main_frm, text="None", justify="left")
+        self.instr_lbl.grid(row=2, column=1, padx=5)
+        self.command_lbl = tk.Label(main_frm, text="None", justify="left")
+        self.command_lbl.grid(row=3, column=1, padx=5)
+        self.time_lbl = tk.Label(main_frm, text="None", justify="left")
+        self.time_lbl.grid(row=4, column=1, padx=5)
 
-        self.skip_btn = tk.Button(main_frm, text="  SKIP  ", command=self.skip)
-        self.skip_btn.grid(row=4, column=0, columnspan=2, padx=10, pady=10)
+        self.skip_btn = tk.Button(main_frm,
+                                  text="  SKIP  ",
+                                  font=("ABBvoice", "20"),
+                                  command=self.skip)
+        self.skip_btn.grid(row=5, column=0, columnspan=2, padx=10, pady=10)
+        
+        self.all_command = scrolledtext.ScrolledText(main_frm, height=11, width=65)
+        self.all_command.insert("1.0", data)
+        self.all_command.grid(row=0, rowspan=5, column=2, padx=5)
 
     def skip(self):
         self.skip_event.set()
@@ -127,10 +140,11 @@ class ShowInfo(tk.Toplevel):
             row=4, column=0, columnspan=2, padx=10, pady=10
             ))
 
-    def update_text(self, instr: str, command: str, time: str):
+    def update_text(self, instr: str, command: str, time_: str, index: int):
         self.instr_lbl.configure(text=instr)
         self.command_lbl.configure(text=command)
-        self.time_lbl.configure(text=time)
+        self.time_lbl.configure(text=time_)
+        self.index_lbl.configure(text=str(index))
         _logger.debug(f"{instr} - {command}")
 
     def mainloop(self):
@@ -245,7 +259,8 @@ def parse_command(command: str, args: str):
 # ----- GET DATA ----- #
 ########################
 _logger.debug("Getting data, check new sequence, add basic sequence")
-lenght, list_of_time, list_of_instr, list_of_command, list_of_args = get_data(filename=FILENAME, logger=_logger)
+df, list_of_time, list_of_instr, list_of_command, list_of_args = get_data(filename=FILENAME, logger=_logger)
+lenght = df.__len__()
 
 ##########################
 # ----- Connecting ----- #
@@ -316,7 +331,7 @@ def run_test():
     _logger.info("Start sequence test")
     for i in range(lenght):
         now = time.time()
-        time_ = datetime.now().strftime("%d/%m/%Y %H:%M:%S - ")
+        time_ = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         skip_event.clear()
         rel_time = next(list_of_time)
         instr = instruments.get(next(list_of_instr).lower())
@@ -325,23 +340,24 @@ def run_test():
             command = next(list_of_command)
             args = next(list_of_args)
             cmd = parse_command(command, args)
-            info_box.update_text(instr, cmd, time_)
+            info_box.update_text(instr, f"{command} - {args}", time_, i)
             # print(time_, instr, f" - send: {cmd}")
             instr: Charger
             instr._shell.send(cmd)
         # --- sleep command --- #
         # if instr == "sleep":
         elif instr == "sleep":
-            info_box.update_text(instr, f"Wait {rel_time} seconds ", time_)
+            info_box.update_text(instr, f"Wait {rel_time} seconds ", time_, i)
             # print(time_, f"Wait {rel_time} seconds ")
             _ = next(list_of_command)
             _ = next(list_of_args)
         # --- SCPI or MODBUS command --- #
         # elif instr != "sleep":  # not arm_xl instrument
         elif instr != arm_xl:  # not arm_xl instrument
-            command = getattr(instr, next(list_of_command).strip())
+            func_ = next(list_of_command).strip()
+            command = getattr(instr, func_)
             args = arg_parse(next(list_of_args))
-            info_box.update_text(instr, f"{command} - {args}", time_)
+            info_box.update_text(instr, f"{func_} - {args}", time_, i)
             # print(time_, instr, f"send: {command} - ", args)
             if args is None:
                 command()
@@ -365,7 +381,7 @@ def run_test():
 # ----- INFO TK and RUN ----- #
 ###############################
 skip_event = threading.Event()
-info_box = ShowInfo(event=skip_event)
+info_box = ShowInfo(event=skip_event, data=df)
 t = threading.Thread(target=run_test, daemon=True)
 t.start()
 info_box.mainloop()

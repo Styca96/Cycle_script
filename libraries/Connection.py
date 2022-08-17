@@ -179,4 +179,6 @@ class Charger:
 CONNECTION: dict[str, Type[Charger]] = {"Arm-Xl": Charger}
 
 if __name__ == "__main__":
-    print("Class for charger connection")
+    import pprint
+    print("Class for SSH connection", flush=True)
+    pprint.pp(CONNECTION)

@@ -7,7 +7,9 @@ import numpy as np
 # import matplotlib.transforms as mtrans
 import pandas as pd
 
+from libraries.Chamber import ACS_Discovery1200
 from libraries.infer_data import get_data
+from libraries.other_SCPI import ITECH
 
 
 class MyLocator(mpltick.AutoMinorLocator):
@@ -58,13 +60,18 @@ def parse(time_: list[int], data: list[int]) -> tuple[list[int], list[int]]:
     new_time.append(last_time)
     hms_time = []
     for totsec in new_time:
-        h = totsec//3600
-        m = (totsec % 3600) // 60
+        h = int(totsec//3600)
+        m = int((totsec % 3600) // 60)
         sec = (totsec % 3600) % 60
-        hms_time.append(f"{h:02d}:{m:02d}:{sec:02d}")
+        hms_time.append(f"{h:02d}:{m:02d}:{sec:04.1f}")
     mpl_date = mdates.datestr2num(hms_time)
     return mdates.num2date(mpl_date), new_data
     return new_time, new_data
+
+
+def parse_vertical(time_: int):
+    date_ , _ = parse([time_], [None])
+    return mdates.date2num(date_[0])
 
 
 def set_spines(ax) -> None:
@@ -289,10 +296,11 @@ for abs_time, cmd, value in zip(df_dc_set.AbsTime.index,
                                 df_dc_set.Command,
                                 df_dc_set.Argument):
     if cmd == "set_function":
-        ax_dc.axvline(df.AbsTime[abs_time-1])
+        # ax_dc.axvline(df.AbsTime[abs_time-1])
+        ax_dc.axvline(parse_vertical(df.AbsTime[abs_time-1]))
         if value == "voltage":
-            ax_dc3.text(df.AbsTime[abs_time-1] + 0.1, 0.1, "CV mode",
-                        rotation=90)
+            ax_dc3.text(parse_vertical(df.AbsTime[abs_time-1] + 0.1), 0.1,
+                        "CV mode", rotation=90)
             if mode is not None:  # set to None all value becouse changed mode
                 vh_setpoint.append(None)
                 time_vh.append(df.AbsTime[abs_time-1])
@@ -302,8 +310,8 @@ for abs_time, cmd, value in zip(df_dc_set.AbsTime.index,
                 time_ih.append(df.AbsTime[abs_time-1])
             mode = "voltage"
         elif value == "current":
-            ax_dc3.text(df.AbsTime[abs_time-1] + 0.1, 0.1, "CC mode",
-                        rotation=90)
+            ax_dc3.text(parse_vertical(df.AbsTime[abs_time-1] + 0.1), 0.1,
+                        "CC mode", rotation=90)
             if mode is not None:  # set to None all value becouse changed mode
                 vh_setpoint.append(None)
                 time_vh.append(df.AbsTime[abs_time-1])
@@ -329,11 +337,11 @@ for abs_time, cmd, value in zip(df_dc_set.AbsTime.index,
             start_value = next(item for item in val_list[::-1]
                                if item is not None)
             final_value = int(split_val[0])
-            step = (final_value - start_value) / (time_to_set / 0.5)
+            step = (final_value - start_value) / (time_to_set / ITECH.TIMESTEP)
             values = np.arange(start_value, final_value, step
                                ).tolist() + [final_value]
             for i in range(len(values) - 1):
-                val_time.append(df.AbsTime[abs_time-1] + i*0.5)
+                val_time.append(df.AbsTime[abs_time-1] + i*ITECH.TIMESTEP)
                 val_list.append(values[i+1])
         else:
             val_list.append(int(split_val[0]))

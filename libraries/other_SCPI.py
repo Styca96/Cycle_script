@@ -303,20 +303,20 @@ class ITECH(Instrument):
 
     # # --- cc mode --- # #
     def set_current(self, value: int | float,
-                    time_to_set: None | float = None):  # VERIFY time_to_set
-        if time_to_set:
-            if time_to_set <= 1:  # condition to set immediate final value
+                    time_to_set_s: None | float = None):  # VERIFY time_to_set
+        if time_to_set_s:
+            if time_to_set_s <= 1:  # condition to set immediate final value
                 self._instrument.write(f'CURRent {value}')
             else:
                 import threading
 
-                assert isinstance(time_to_set, float | int)
+                assert isinstance(time_to_set_s, float | int)
                 start_value = self._instrument.query_ascii_values("CURR?")
                 target_ = self.set_current
-                step = (value - start_value) / (time_to_set / self.TIMESTEP)
+                step = (value - start_value) / (time_to_set_s / self.TIMESTEP)
                 values = np.arange(start_value, value, step).tolist() + [value]
                 t = threading.Thread(target=self.__gradient_setpoint,
-                                     args=(target_, values, time_to_set),
+                                     args=(target_, values, time_to_set_s),
                                      daemon=True)
                 t.start()
         else:
@@ -331,20 +331,20 @@ class ITECH(Instrument):
         self._instrument.write(f'VOLTage:LIMit:POSitive {v_pos}')
 
     # # --- cv mode --- # #
-    def set_voltage(self, value: int | float, time_to_set: None | int = None):  # VERIFY time_to_set # noqa: E501
-        if time_to_set:
-            if time_to_set <= 1:  # condition to set immediate final value
+    def set_voltage(self, value: int | float, time_to_set_s: None | int = None):  # VERIFY time_to_set_s # noqa: E501
+        if time_to_set_s:
+            if time_to_set_s <= 1:  # condition to set immediate final value
                 self._instrument.write(f'CURRent {value}')
             else:
                 import threading
 
-                assert isinstance(time_to_set, float | int)
+                assert isinstance(time_to_set_s, float | int)
                 start_value = self._instrument.query_ascii_values("VOLT?")
                 target_ = self.set_voltage
-                step = (value - start_value) / (time_to_set / self.TIMESTEP)
+                step = (value - start_value) / (time_to_set_s / self.TIMESTEP)
                 values = np.arange(start_value, value, step).tolist() + [value]
                 t = threading.Thread(target=self.__gradient_setpoint,
-                                     args=(target_, values, time_to_set),
+                                     args=(target_, values, time_to_set_s),
                                      daemon=True)
                 t.start()
         else:

@@ -314,12 +314,12 @@ class ACS_Discovery1200(ModbusClient):
 
     # ----- Write Operation -----
     def write_setpoint(self, meas: str, value: int | float,
-                       time_to_set: None | int = None) -> bool:
+                       time_to_set_m: None | int = None) -> bool:
         """Cambia il valore del setpoint desiderato\n
         Args:
             meas (str): setpoint da cambiare. A scelta tra quelli in 'setpoint'
             value (int | float): valore da impostare\n
-            time_to_set (None | int, optional): Valore in minuti per arrivare
+            time_to_set_m (None | int, optional): Valore in minuti per arrivare
             alla temperatura voluta. Se espresso realizza uno pseudogradiente.
             Defaults to None.
         Raises:
@@ -336,17 +336,17 @@ class ACS_Discovery1200(ModbusClient):
             self.__validate(meas, value)
             address: int = self.writing_area["setpoint"][meas]
             # ---- gradient generator
-            if time_to_set:
+            if time_to_set_m:
                 import threading
 
-                assert isinstance(time_to_set, int)
+                assert isinstance(time_to_set_m, int)
                 if meas == "Hum":
                     meas = "Rel Hum"
                 readed, start_value = self.read_measure(meas)
                 if readed:
                     grad = threading.Thread(
                         target=self.__gradient_setpoint,
-                        args=(address, value, time_to_set, start_value),
+                        args=(address, value, time_to_set_m, start_value),
                         daemon=True,
                     )
                     grad.start()

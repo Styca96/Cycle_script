@@ -1,24 +1,26 @@
 # TODO
+* [ ] OSC bug
+* [X] Pause execution:
 
-* [ ] Pause execution:
   * or next command
   * or actual time
-
 * [ ] File Json di configurazione con JSONschema
+
   * Tipo a lista con Lista istanti temporali
   * Mantenere comandi se non c'è un cambiamento
   * Un cambio di parametro alla volta
   * schema da fare
   * esempio in prova2.json
-
 * [ ] Distribuzione aggiornamenti
-  * [X] SourceTree or other GIT method
 
+  * [X] SourceTree or other GIT method
 * [ ] Verifica esecuzione e lancio procedura stop se crash
+
   * [X] Catch error on program
   * [ ] Run safe close command
 
 # DONE
+
 * [X] GRAFICO
   * [X] tempo in HH:MM:SS
   * [X] rampa ITECH

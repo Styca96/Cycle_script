@@ -688,7 +688,7 @@ class MSO58B(Instrument):  # VERIFY try this instrument
             filepath = dt.strftime(f"OSC/{filename}_%Y%m%d-%H%M%S.png")
         self.write_command('SAVE:IMAGe \"C:/Temp.png\"')
         self.query_command("*OPC?")
-        self.write_command('FILESystem:READFile \"C:/Temp.png\"')
+        self.write_command('FILESystem:READFile \"C:/Temp.png\"')  # BUG 
         imgData = self._instrument.read_raw(1024*1024)
 
         with open(filepath, "wb") as file:

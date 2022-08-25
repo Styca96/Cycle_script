@@ -33,11 +33,13 @@ instr_dict = {
 
 def get_data(all_data=False, filename: str = "command.xlsx", logger=None):
     now = time.time()  # XXX debug read excel
-    filepath = path.dirname(path.dirname(path.realpath(__file__)))
+    if filename == "command.xlsx":
+        filepath = path.dirname(path.dirname(path.realpath(__file__)))
+        filename = f"{filepath}/{filename}"
     try:
         if filename.endswith(".xlsx"):
             df = pd.read_excel(
-                        f"{filepath}/{filename}",  # real file
+                        f"{filename}",  # real file
                         # f"{filepath}/command_debug.xlsx",  # XXX debug, change to real file_name # noqa: E501
                         engine="openpyxl",
                         sheet_name="SequenceConfig",

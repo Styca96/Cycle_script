@@ -1,6 +1,7 @@
 import logging
 import os
 import socket
+import sys
 import threading
 import time
 import tkinter as tk
@@ -128,7 +129,9 @@ class ShowInfo(tk.Toplevel):
         self.skip_btn.grid(row=5, column=0, columnspan=2, padx=10, pady=10)
         
         self.all_command = scrolledtext.ScrolledText(main_frm, height=11, width=65)
-        self.all_command.insert("1.0", data)
+        for i in range(data.__len__()//60 + 1):
+            self.all_command.insert(tk.END, data.iloc[60*(i):60*(i+1)])
+            self.all_command.insert(tk.END, "\n")
         self.all_command.grid(row=0, rowspan=5, column=2, padx=5)
 
     def skip(self):
@@ -137,14 +140,14 @@ class ShowInfo(tk.Toplevel):
         self.skip_btn.grid_forget()
         self.update()
         self.after(1000, self.skip_btn.grid(
-            row=4, column=0, columnspan=2, padx=10, pady=10
+            row=5, column=0, columnspan=2, padx=10, pady=10
             ))
 
     def update_text(self, instr: str, command: str, time_: str, index: int):
+        self.index_lbl.configure(text=str(index))
         self.instr_lbl.configure(text=instr)
         self.command_lbl.configure(text=command)
         self.time_lbl.configure(text=time_)
-        self.index_lbl.configure(text=str(index))
         _logger.debug(f"{instr} - {command}")
 
     def mainloop(self):
@@ -155,6 +158,7 @@ class ShowInfo(tk.Toplevel):
         if messagebox.askyesno("Closing", "Are you sure?"):
             self.destroy()
             self.master.destroy()
+            sys.exit()
         else:
             return
 
@@ -344,24 +348,19 @@ def run_test():
             args = next(list_of_args)
             cmd = parse_command(command, args)
             info_box.update_text(instr, f"{command} - {args}", time_, i)
-            # print(time_, instr, f" - send: {cmd}")
             instr: Charger
             instr._shell.send(cmd)
         # --- sleep command --- #
-        # if instr == "sleep":
         elif instr == "sleep":
             info_box.update_text(instr, f"Wait {rel_time} seconds ", time_, i)
-            # print(time_, f"Wait {rel_time} seconds ")
             _ = next(list_of_command)
             _ = next(list_of_args)
         # --- SCPI or MODBUS command --- #
-        # elif instr != "sleep":  # not arm_xl instrument
         elif instr != arm_xl:  # not arm_xl instrument
             func_ = next(list_of_command).strip()
             command = getattr(instr, func_)
             args = arg_parse(next(list_of_args))
             info_box.update_text(instr, f"{func_} - {args}", time_, i)
-            # print(time_, instr, f"send: {command} - ", args)
             if args is None:
                 command()
             elif isinstance(args, tuple):
@@ -369,7 +368,6 @@ def run_test():
             else:
                 command(*args)
         else:
-            # print("No Instrument found\nPass to next command without wait")
             _logger.warning("No Instrument found "
                             "- pass to next command without wait")
             _ = next(list_of_command)

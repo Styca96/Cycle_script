@@ -91,13 +91,16 @@ class ShowInfo(tk.Toplevel):
 
     def __init__(self, parent=None,
                  event: threading.Event = None,
-                 data: pd.DataFrame = None):
+                 data: pd.DataFrame = None,
+                 play_event: threading.Event = None):
         super().__init__()
         self.title("Sequence Info")
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.geometry("900x280")
 
         self.skip_event = event
+        self.play_event = play_event
+        self.pause_state = False
 
         main_frm = tk.Frame(self)
         main_frm.pack(expand=1, fill="both")
@@ -126,12 +129,17 @@ class ShowInfo(tk.Toplevel):
                                   text="  SKIP  ",
                                   font=("ABBvoice", "20"),
                                   command=self.skip)
-        self.skip_btn.grid(row=5, column=0, columnspan=2, padx=10, pady=10)
-        
+        self.skip_btn.grid(row=5, column=0, padx=10, pady=10)
+        self.pause_btn = tk.Button(main_frm,
+                                   text="  PAUSE  ",
+                                   font=("ABBvoice", "20"),
+                                   command=self.pause)
+        self.skip_btn.grid(row=6, column=0, padx=10, pady=10)
+
         self.all_command = scrolledtext.ScrolledText(main_frm, height=11, width=65)
-        for i in range(data.__len__()//60 + 1):
-            self.all_command.insert(tk.END, data.iloc[60*(i):60*(i+1)])
-            self.all_command.insert(tk.END, "\n")
+        with pd.option_context('display.max_rows', None,
+                               'display.max_columns', None):
+            self.all_command.insert(tk.END, data)
         self.all_command.grid(row=0, rowspan=5, column=2, padx=5)
 
     def skip(self):
@@ -140,8 +148,22 @@ class ShowInfo(tk.Toplevel):
         self.skip_btn.grid_forget()
         self.update()
         self.after(1000, self.skip_btn.grid(
-            row=5, column=0, columnspan=2, padx=10, pady=10
+            row=5, column=0, padx=10, pady=10
             ))
+
+    def pause(self):
+        if self.pause_state:
+            self.play_event.set()
+            _logger.info("Resuming...")
+            self.skip_btn.configure(state="normal")
+            self.pause_btn.configure(text="  PAUSE  ")
+            self.update()
+        else:
+            self.play_event.clear()
+            _logger.info("Pausing...")
+            self.skip_btn.configure(state="disabled")
+            self.pause_btn.configure(text="  RESUME  ")
+            self.update()
 
     def update_text(self, instr: str, command: str, time_: str, index: int):
         self.index_lbl.configure(text=str(index))
@@ -334,47 +356,54 @@ instruments = {
 ###############################
 def run_test():
     _logger.info("Start sequence test")
-    # TODO safe exit
     for i in range(lenght):
-        # TODO pause_event
-        now = time.time()
-        time_ = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        skip_event.clear()
-        rel_time = next(list_of_time)
-        instr = instruments.get(next(list_of_instr).lower())
-        # --- ARMxl command --- #
-        if instr == arm_xl:
-            command = next(list_of_command)
-            args = next(list_of_args)
-            cmd = parse_command(command, args)
-            info_box.update_text(instr, f"{command} - {args}", time_, i)
-            instr: Charger
-            instr._shell.send(cmd)
-        # --- sleep command --- #
-        elif instr == "sleep":
-            info_box.update_text(instr, f"Wait {rel_time} seconds ", time_, i)
-            _ = next(list_of_command)
-            _ = next(list_of_args)
-        # --- SCPI or MODBUS command --- #
-        elif instr != arm_xl:  # not arm_xl instrument
-            func_ = next(list_of_command).strip()
-            command = getattr(instr, func_)
-            args = arg_parse(next(list_of_args))
-            info_box.update_text(instr, f"{func_} - {args}", time_, i)
-            if args is None:
-                command()
-            elif isinstance(args, tuple):
-                command(args)
-            else:
-                command(*args)
+        try:
+            # TODO pause_event
+            now = time.time()
+            time_ = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            skip_event.clear()
+            rel_time = next(list_of_time)
+            instr = instruments.get(next(list_of_instr).lower())
+            # --- ARMxl command --- #
+            if instr == arm_xl:
+                command = next(list_of_command)
+                args = next(list_of_args)
+                cmd = parse_command(command, args)
+                info_box.update_text(instr, f"{command} - {args}", time_, i)
+                instr: Charger
+                instr._shell.send(cmd)
+            # --- sleep command --- #
+            elif instr == "sleep":
+                info_box.update_text(instr, f"Wait {rel_time} seconds ", time_, i)
+                _ = next(list_of_command)
+                _ = next(list_of_args)
+            # --- SCPI or MODBUS command --- #
+            elif instr != arm_xl:  # not arm_xl instrument
+                func_ = next(list_of_command).strip()
+                command = getattr(instr, func_)
+                args = arg_parse(next(list_of_args))
+                info_box.update_text(instr, f"{func_} - {args}", time_, i)
+                if args is None:
+                    command()
+                elif isinstance(args, tuple):
+                    command(args)
+                else:
+                    command(*args)
+        except Exception:
+            # FIXME Not Exception, but SSH or PYVISA or PYMODBUS EXCEPTION
+            _logger.critical("Error during sequence execution", exc_info=1)
+            # _ = next(list_of_command)
+            # _ = next(list_of_args)
+            # continue
+            sys.exit(1)  # TODO safe exit
         else:
-            _logger.warning("No Instrument found "
-                            "- pass to next command without wait")
-            _ = next(list_of_command)
-            _ = next(list_of_args)
-            continue
-        while time.time() - now < rel_time and not skip_event.is_set():
-            continue
+            while time.time() - now < rel_time and not skip_event.is_set():
+                if not play_event.is_set():
+                    passed_time = time.time() - now
+                    rel_time = rel_time - passed_time
+                    play_event.wait()
+                    now = time.time()
+                    
     info_box.master.destroy()
 
 
@@ -382,7 +411,9 @@ def run_test():
 # ----- INFO TK and RUN ----- #
 ###############################
 skip_event = threading.Event()
-info_box = ShowInfo(event=skip_event, data=df)
+play_event = threading.Event()
+play_event.set()
+info_box = ShowInfo(event=skip_event, data=df, play_event=play_event)
 t = threading.Thread(target=run_test, daemon=True)
 t.start()
 info_box.mainloop()

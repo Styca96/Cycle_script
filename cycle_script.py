@@ -50,7 +50,7 @@ ITECH_ADDRESS = "TCPIP0::192.168.0.102::30000::SOCKET"
 CHROMA_ADDRESS = "TCPIP0::192.168.0.101::2101::SOCKET"
 CHAMBER_ADDRESS = "COM3"
 HP6032A_ADDRESS = "GPIB::5::INSTR"
-MSO58B_ADDRESS = "TCPIP0::192.168.0.106::inst0::INSTR"
+MSO58B_ADDRESS = "TCPIP0::192.168.0.107::inst0::INSTR"
 ARM_XL_ADDRESS = {"host": "192.168.0.103",
                   "user": "root",
                   "pwd": "ABB"}
@@ -271,6 +271,7 @@ address = show_options("ITECH", "SCPI") if default is False else ITECH_ADDRESS
 if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
     itech = ITECH()
     itech.connect(address)
+    itech.config()
 else:
     itech = None
 # CHROMA
@@ -329,7 +330,9 @@ instruments = {
 ###############################
 def run_test():
     _logger.info("Start sequence test")
+    # TODO safe exit
     for i in range(lenght):
+        # TODO pause_event
         now = time.time()
         time_ = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         skip_event.clear()

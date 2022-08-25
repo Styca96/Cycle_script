@@ -261,7 +261,7 @@ ax_ac3.set_ylabel("State")
 p1, = ax_ac.step(*parse(time_v, v_setpoint), where="post", label="V",
                  color=next(cycle), alpha=.7)
 p2, = ax_ac2.step(*parse(time_f, f_setpoint), where="post", label="Freq",
-                  color=next(cycle), alpha=.7)
+                  color=next(cycle), alpha=.7, linestyle="dashed")
 p3, = ax_ac3.step(*parse(time_, output), where="post", label="State",
                   color=next(cycle), alpha=.7, linestyle="dashdot")
 set_spines(ax_ac3)

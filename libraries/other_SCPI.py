@@ -257,13 +257,13 @@ class ITECH(Instrument):
         self.set_cls()
         self.set_rst()
         self.get_idn()
-        self.set_terminator()
 
         self.config()
 
     def config(self):
         """Configurazione setup e measurement"""
-        self.set_setup(self.setup)
+        self.set_terminator()
+        # self.set_setup(self.setup)
 
     def save_config(self, n: int):
         assert isinstance(n, int) and 0 <= n <= 9
@@ -313,8 +313,8 @@ class ITECH(Instrument):
                 assert isinstance(time_to_set_s, float | int)
                 start_value = self._instrument.query_ascii_values("CURR?")
                 target_ = self.set_current
-                step = (value - start_value) / (time_to_set_s / self.TIMESTEP)
-                values = np.arange(start_value, value, step).tolist() + [value]
+                step = (value - start_value[0]) / (time_to_set_s / self.TIMESTEP)
+                values = np.arange(start_value[0], value, step).tolist() + [value]
                 t = threading.Thread(target=self.__gradient_setpoint,
                                      args=(target_, values, time_to_set_s),
                                      daemon=True)
@@ -680,12 +680,12 @@ class MSO58B(Instrument):  # VERIFY try this instrument
 
     # ----- function MSO58B ----- #
     # ----- predefine MSO58B ----- #
-    def save_screen(self, filepath: str = "default"):
+    def save_screen(self, filename: str = "default"):
         dt = datetime.datetime.now()
-        if filepath == "default":
+        if filename == "default":
             filepath = dt.strftime("OSC/MSO58B_%Y%m%d-%H%M%S.png")
         else:
-            filepath = dt.strftime(f"{filepath}_%Y%m%d-%H%M%S.png")
+            filepath = dt.strftime(f"OSC/{filename}_%Y%m%d-%H%M%S.png")
         self.write_command('SAVE:IMAGe \"C:/Temp.png\"')
         self.query_command("*OPC?")
         self.write_command('FILESystem:READFile \"C:/Temp.png\"')

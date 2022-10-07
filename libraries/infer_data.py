@@ -10,8 +10,8 @@ from .Chamber import ACS_Discovery1200
 # from .Connection import Charger
 from .other_SCPI import CHROMA, HP6032A, ITECH, MSO58B
 
-USER_SEQUENCE_DIR = (f"{path.abspath(__file__).split('api')[0]}"
-                     "api/predefine_sequence/")
+USER_SEQUENCE_DIR = (f"{path.dirname(path.abspath(__package__))}"
+                     "/predefine_sequence/")
 instr_dict = {
     "dc_source": ITECH,
     "ac_source": CHROMA,

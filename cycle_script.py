@@ -136,7 +136,8 @@ class ShowInfo(tk.Toplevel):
                                    command=self.pause)
         self.skip_btn.grid(row=6, column=0, padx=10, pady=10)
 
-        self.all_command = scrolledtext.ScrolledText(main_frm, height=11, width=65)
+        self.all_command = scrolledtext.ScrolledText(main_frm,
+                                                     height=11, width=65)
         with pd.option_context('display.max_rows', None,
                                'display.max_columns', None):
             self.all_command.insert(tk.END, data)

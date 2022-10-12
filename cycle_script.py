@@ -46,6 +46,14 @@ _logger = logging.getLogger(__name__)
 ###############################
 # ----- DEFAULT OPTIONS ----- #
 ###############################
+# USAGE OPTIONS
+ITECH_USAGE = True
+CHROMA_USAGE = True
+HP6032A_USAGE = True
+MSO58B_USAGE = True
+CHAMBER_USAGE = True
+ARM_XL_USAGE = True
+
 # DEFAULT CONNECTION STRING
 ITECH_ADDRESS = "TCPIP0::192.168.0.102::30000::SOCKET"
 CHROMA_ADDRESS = "TCPIP0::192.168.0.101::2101::SOCKET"
@@ -286,59 +294,66 @@ def parse_command(command: str, args: str):
 # ----- GET DATA ----- #
 ########################
 _logger.debug("Getting data, check new sequence, add basic sequence")
-df, list_of_time, list_of_instr, list_of_command, list_of_args = get_data(filename=FILENAME, logger=_logger)
+df, list_of_time, list_of_instr, list_of_command, list_of_args = get_data(filename=FILENAME, logger=_logger)  # noqa: E501
 lenght = df.__len__()
 
 ##########################
 # ----- Connecting ----- #
 ##########################
 _logger.debug("Connecting all item...")
-# ITECH
-address = show_options("ITECH", "SCPI") if default is False else ITECH_ADDRESS
-if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
-    itech = ITECH()
-    itech.connect(address)
-    itech.config()
-else:
-    itech = None
-# CHROMA
-address = show_options("CHROMA", "SCPI") if default is False else CHROMA_ADDRESS
-if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
-    chroma = CHROMA()
-    chroma.connect(address)
-else:
-    chroma = None
-# HP6032A
-address = show_options("HP6032A", "SCPI") if default is False else HP6032A_ADDRESS
-if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
-    hp6032a = HP6032A()
-    hp6032a.connect(address)
-else:
-    hp6032a = None
-# MSO58B
-address = show_options("MSO58B", "SCPI") if default is False else MSO58B_ADDRESS
-if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
-    mso58b = MSO58B()
-    mso58b.connect(address)
-else:
-    mso58b = None
-# CHAMBER
-com_port = show_options("CHAMBER", "COM") if default is False else CHAMBER_ADDRESS
-if com_port.startswith(("COM", "tty")):
-    chamber = ACS_Discovery1200(com_port)
-else:
-    chamber = None
-# ARM-XL
-host = show_options("ARM-XL", "IP") if default is False else ARM_XL_ADDRESS["host"]
 try:
-    socket.inet_aton(host)
-    user = show_options("ARM-XL user", "str") if default is False else ARM_XL_ADDRESS["user"]
-    pwd = show_options("ARM-XL pwd", "str") if default is False else ARM_XL_ADDRESS["pwd"]
-    arm_xl = Charger(host=host,
-                     user=user,
-                     pwd=pwd)
-except socket.error:
-    arm_xl = None
+    # ITECH
+    address = show_options("ITECH", "SCPI") if default is False else ITECH_ADDRESS  # noqa: E501
+    if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")) and ITECH_USAGE is True:  # noqa: E501
+        itech = ITECH()
+        itech.connect(address)
+        itech.config()
+    else:
+        itech = None
+    # CHROMA
+    address = show_options("CHROMA", "SCPI") if default is False else CHROMA_ADDRESS  # noqa: E501
+    if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")) and CHROMA_USAGE is True:  # noqa: E501
+        chroma = CHROMA()
+        chroma.connect(address)
+    else:
+        chroma = None
+    # HP6032A
+    address = show_options("HP6032A", "SCPI") if default is False else HP6032A_ADDRESS  # noqa: E501
+    if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")) and HP6032A_USAGE is True:  # noqa: E501
+        hp6032a = HP6032A()
+        hp6032a.connect(address)
+    else:
+        hp6032a = None
+    # MSO58B
+    address = show_options("MSO58B", "SCPI") if default is False else MSO58B_ADDRESS  # noqa: E501
+    if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")) and MSO58B_USAGE is True:  # noqa: E501
+        mso58b = MSO58B()
+        mso58b.connect(address)
+    else:
+        mso58b = None
+    # CHAMBER
+    com_port = show_options("CHAMBER", "COM") if default is False else CHAMBER_ADDRESS  # noqa: E501
+    if com_port.startswith(("COM", "tty")) and CHAMBER_USAGE is True:
+        chamber = ACS_Discovery1200(com_port)
+    else:
+        chamber = None
+    # ARM-XL
+    host = show_options("ARM-XL", "IP") if default is False else ARM_XL_ADDRESS["host"]  # noqa: E501
+    if ARM_XL_USAGE is True:
+        socket.inet_aton(host)
+        user = show_options("ARM-XL user", "str") if default is False else ARM_XL_ADDRESS["user"]  # noqa: E501
+        pwd = show_options("ARM-XL pwd", "str") if default is False else ARM_XL_ADDRESS["pwd"]  # noqa: E501
+        arm_xl = Charger(host=host,
+                         user=user,
+                         pwd=pwd)
+    else:
+        arm_xl = None
+except socket.error as e:
+    _logger.exception("SSH connection Error")
+    raise e
+except Exception as e:
+    _logger.exception("Connection Error")
+    raise e
 
 _logger.info("All items connected")
 instruments = {
@@ -375,7 +390,9 @@ def run_test():
                 instr._shell.send(cmd)
             # --- sleep command --- #
             elif instr == "sleep":
-                info_box.update_text(instr, f"Wait {rel_time} seconds ", time_, i)
+                info_box.update_text(
+                    instr, f"Wait {rel_time} seconds ", time_, i
+                    )
                 _ = next(list_of_command)
                 _ = next(list_of_args)
             # --- SCPI or MODBUS command --- #
@@ -404,7 +421,7 @@ def run_test():
                     rel_time = rel_time - passed_time
                     play_event.wait()
                     now = time.time()
-                    
+
     info_box.master.destroy()
 
 

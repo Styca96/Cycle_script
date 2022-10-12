@@ -1,0 +1,8 @@
+- Time: 5
+  Instrument: ARMxl
+  Command: start_charge_session.sh
+  Argument: '-'
+- Time: 5
+  Instrument: ARMxl
+  Command: stop_charge_session.sh
+  Argument: '-'

@@ -95,15 +95,18 @@ def add_sequence(df: pd.DataFrame, logger) -> pd.DataFrame:
             ]
 
         new_df = df.copy()
-        for i, sq_cmd in sq_list:
+        for i, sq_cmd in sq_list[-1::-1]:
             if i == 0:
                 new_df = pd.concat([sq_cmd, new_df.loc[i+1:]])
             elif i == df.index[-1]:
                 new_df = pd.concat([new_df.loc[:i-1], sq_cmd])
             else:
                 new_df = pd.concat([new_df.loc[:i-1], sq_cmd, new_df.loc[i+1:]])
-
-        return new_df.reset_index(drop=True)
+            new_df = new_df.reset_index(drop=True)
+        
+        # # iter if sequence inside other sequence
+        # add_sequence(new_df, logger)
+        return new_df
     
     except Exception as e:
         title = "Base Sequence Error"

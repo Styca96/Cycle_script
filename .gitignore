@@ -1,7 +1,7 @@
 __pycache__
 gitignore
 *.zip
-*.log
+*.log*
 OSC/*
 command_debug.xlsx
 sequenc*

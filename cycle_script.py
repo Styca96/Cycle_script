@@ -6,6 +6,7 @@ import threading
 import time
 import tkinter as tk
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 from types import NoneType
 from typing import Iterable
@@ -22,13 +23,20 @@ from libraries.other_SCPI import CHROMA, HP6032A, ITECH, MSO58B
 # ----- LOGGING OPTIONS ----- #
 ###############################
 log_file = (f"{os.path.dirname(os.path.abspath(__file__))}/log.log")
+basic_handler = RotatingFileHandler(
+    log_file,
+    maxBytes=1000000,
+    backupCount=2,
+    mode="w"
+    )
 logging.basicConfig(
     encoding='utf-8', level=logging.DEBUG,
     format='%(asctime)-19s %(name)-11s %(levelname)-8s:'
     ' %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S',
-    filename=log_file,
-    filemode='w',
+    # filename=log_file,
+    # filemode="w",
+    handlers=[basic_handler]
     )
 # create handler console
 console = logging.StreamHandler()
@@ -38,10 +46,11 @@ formatter = logging.Formatter('%(name)-15s %(levelname)-8s:'
 console.setFormatter(formatter)
 logging.getLogger('').addHandler(console)
 # change level for 3rd party module
-for i in ['pandas', 'PIL', 'pyvisa']:
+for i in ['pandas', 'PIL', 'pyvisa', "paramiko"]:
     logger = logging.getLogger(i)
     logger.setLevel(logging.INFO)
 _logger = logging.getLogger(__name__)
+basic_handler.doRollover()
 
 ###############################
 # ----- DEFAULT OPTIONS ----- #

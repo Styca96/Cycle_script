@@ -7,7 +7,7 @@ import pandas as pd
 import yaml
 
 from .Chamber import ACS_Discovery1200
-# from .Connection import Charger
+from .Connection import ARES_COMMAND
 from .other_SCPI import CHROMA, HP6032A, ITECH, MSO58B
 
 USER_SEQUENCE_DIR = (f"{path.dirname(path.abspath(__package__))}"
@@ -18,13 +18,7 @@ instr_dict = {
     "powersupply": HP6032A,
     "clim_chamber": ACS_Discovery1200,
     # FIXME default command for ARES, not based on library or Charger class
-    "armxl": {"set_voltage_and_power.sh": 2,
-              "start_charge_session.sh": 0,
-              "stop_charge_session.sh": 0,
-              "set_power.sh": 1,
-              "set_reactive.sh": 1,
-              "force_fan.sh": 1
-              },
+    "armxl": ARES_COMMAND,
     "oscilloscope": MSO58B,
     "sleep": ["sleep", "-"],
     "sequence": USER_SEQUENCE_DIR

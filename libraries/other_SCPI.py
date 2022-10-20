@@ -328,7 +328,7 @@ class ITECH(Instrument):
             values (tuple[float, float]): coppia valore Vl-Vh
         """
         # actual_pos = self._instrument.query("VOLTage:LIMit:POSitive?")
-        actual_neg = self._instrument.query("VOLTage:LIMit:NEGative?")
+        actual_neg = self._instrument.query_ascii_values("VOLTage:LIMit:NEGative?")
         if v_pos <= actual_neg:
             self._instrument.write(f'VOLTage:LIMit:NEGative {v_neg}')
             self._instrument.write(f'VOLTage:LIMit:POSitive {v_pos}')

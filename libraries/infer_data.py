@@ -7,24 +7,18 @@ import pandas as pd
 import yaml
 
 from .Chamber import ACS_Discovery1200
-# from .Connection import Charger
+from .Connection import ARES_COMMAND
 from .other_SCPI import CHROMA, HP6032A, ITECH, MSO58B
 
-USER_SEQUENCE_DIR = (f"{path.abspath(__file__).split('api')[0]}"
-                     "api/predefine_sequence/")
+USER_SEQUENCE_DIR = (f"{path.dirname(path.abspath(__package__))}"
+                     "/predefine_sequence/")
 instr_dict = {
     "dc_source": ITECH,
     "ac_source": CHROMA,
     "powersupply": HP6032A,
     "clim_chamber": ACS_Discovery1200,
     # FIXME default command for ARES, not based on library or Charger class
-    "armxl": {"set_voltage_and_power.sh": 2,
-              "start_charge_session.sh": 0,
-              "stop_charge_session.sh": 0,
-              "set_power.sh": 1,
-              "set_reactive.sh": 1,
-              "force_fan.sh": 1
-              },
+    "armxl": ARES_COMMAND,
     "oscilloscope": MSO58B,
     "sleep": ["sleep", "-"],
     "sequence": USER_SEQUENCE_DIR
@@ -33,11 +27,13 @@ instr_dict = {
 
 def get_data(all_data=False, filename: str = "command.xlsx", logger=None):
     now = time.time()  # XXX debug read excel
-    filepath = path.dirname(path.dirname(path.realpath(__file__)))
+    if filename == "command.xlsx":
+        filepath = path.dirname(path.dirname(path.realpath(__file__)))
+        filename = f"{filepath}/{filename}"
     try:
         if filename.endswith(".xlsx"):
             df = pd.read_excel(
-                        f"{filepath}/{filename}",  # real file
+                        f"{filename}",  # real file
                         # f"{filepath}/command_debug.xlsx",  # XXX debug, change to real file_name # noqa: E501
                         engine="openpyxl",
                         sheet_name="SequenceConfig",
@@ -93,15 +89,18 @@ def add_sequence(df: pd.DataFrame, logger) -> pd.DataFrame:
             ]
 
         new_df = df.copy()
-        for i, sq_cmd in sq_list:
+        for i, sq_cmd in sq_list[-1::-1]:
             if i == 0:
                 new_df = pd.concat([sq_cmd, new_df.loc[i+1:]])
             elif i == df.index[-1]:
                 new_df = pd.concat([new_df.loc[:i-1], sq_cmd])
             else:
                 new_df = pd.concat([new_df.loc[:i-1], sq_cmd, new_df.loc[i+1:]])
-
-        return new_df.reset_index(drop=True)
+            new_df = new_df.reset_index(drop=True)
+        
+        # # iter if sequence inside other sequence
+        # add_sequence(new_df, logger)
+        return new_df
     
     except Exception as e:
         title = "Base Sequence Error"

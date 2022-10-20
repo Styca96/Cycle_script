@@ -177,6 +177,14 @@ class Charger:
 
 
 CONNECTION: dict[str, Type[Charger]] = {"Arm-Xl": Charger}
+ARES_COMMAND =  {  # command save on ARES and minimum parameter needed # FIXME find this from Instrument if possible
+    "set_voltage_and_power.sh": 2,
+    "start_charge_session.sh": 0,
+    "stop_charge_session.sh": 0,
+    "set_power.sh": 1,
+    "set_reactive.sh": 1,
+    "force_fan.sh": 1
+    }
 
 if __name__ == "__main__":
     import pprint

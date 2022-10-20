@@ -1,16 +1,19 @@
 import logging
 import os
 import socket
+import sys
 import threading
 import time
 import tkinter as tk
 from datetime import datetime
-from tkinter import filedialog, messagebox, scrolledtext, ttk
+from logging.handlers import RotatingFileHandler
+from tkinter import filedialog, messagebox, scrolledtext
 from types import NoneType
 from typing import Iterable
 
 import pandas as pd
 import pyvisa
+import ttkbootstrap as ttk
 
 from libraries.Chamber import ACS_Discovery1200
 from libraries.Connection import Charger
@@ -21,13 +24,20 @@ from libraries.other_SCPI import CHROMA, HP6032A, ITECH, MSO58B
 # ----- LOGGING OPTIONS ----- #
 ###############################
 log_file = (f"{os.path.dirname(os.path.abspath(__file__))}/log.log")
+basic_handler = RotatingFileHandler(
+    log_file,
+    maxBytes=1000000,
+    backupCount=2,
+    mode="w"
+    )
 logging.basicConfig(
     encoding='utf-8', level=logging.DEBUG,
     format='%(asctime)-19s %(name)-11s %(levelname)-8s:'
     ' %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S',
-    filename=log_file,
-    filemode='w',
+    # filename=log_file,
+    # filemode="w",
+    handlers=[basic_handler]
     )
 # create handler console
 console = logging.StreamHandler()
@@ -37,49 +47,34 @@ formatter = logging.Formatter('%(name)-15s %(levelname)-8s:'
 console.setFormatter(formatter)
 logging.getLogger('').addHandler(console)
 # change level for 3rd party module
-for i in ['pandas', 'PIL', 'pyvisa']:
+for i in ['pandas', 'PIL', 'pyvisa', "paramiko"]:
     logger = logging.getLogger(i)
     logger.setLevel(logging.INFO)
 _logger = logging.getLogger(__name__)
+basic_handler.doRollover()
 
 ###############################
 # ----- DEFAULT OPTIONS ----- #
 ###############################
+# USAGE OPTIONS
+ITECH_USAGE = True
+CHROMA_USAGE = True
+HP6032A_USAGE = True
+MSO58B_USAGE = True
+CHAMBER_USAGE = True
+ARM_XL_USAGE = True
+
 # DEFAULT CONNECTION STRING
 ITECH_ADDRESS = "TCPIP0::192.168.0.102::30000::SOCKET"
 CHROMA_ADDRESS = "TCPIP0::192.168.0.101::2101::SOCKET"
 CHAMBER_ADDRESS = "COM3"
 HP6032A_ADDRESS = "GPIB::5::INSTR"
-MSO58B_ADDRESS = "TCPIP0::192.168.0.106::inst0::INSTR"
+MSO58B_ADDRESS = "TCPIP0::192.168.0.107::inst0::INSTR"
 ARM_XL_ADDRESS = {"host": "192.168.0.103",
                   "user": "root",
                   "pwd": "ABB"}
 
 FILENAME = "command.xlsx"
-
-# if True usa CONNECTION STRING, else open GUI for selection
-if messagebox.askyesno("Configuration",
-                       "Use DEFAULT configuration?"):
-    default = True
-    _logger.info("Use default configuration")
-else:
-    default = False
-    fileoption = dict(
-        title="Please select a file:",
-        defaultextension="*.xlsx",
-        filetypes=[
-            ("Tutti i file", "*.*"),
-            ("Sequenza Comandi", "*.xlsx"),
-            ("File di configigurazione", "*.json"),
-            ("Tutti i File Excel", "*.xl*")
-            ],
-        )
-    _logger.debug("Selecting sequence file")
-    FILENAME = filedialog.askopenfilename(**fileoption)
-    _logger.info(f"Select {FILENAME}")
-
-
-rm = pyvisa.ResourceManager()
 
 
 ###################################
@@ -90,13 +85,16 @@ class ShowInfo(tk.Toplevel):
 
     def __init__(self, parent=None,
                  event: threading.Event = None,
-                 data: pd.DataFrame = None):
+                 data: pd.DataFrame = None,
+                 play_event: threading.Event = None):
         super().__init__()
         self.title("Sequence Info")
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.geometry("900x280")
 
         self.skip_event = event
+        self.play_event = play_event
+        self.pause_state = False
 
         main_frm = tk.Frame(self)
         main_frm.pack(expand=1, fill="both")
@@ -125,10 +123,18 @@ class ShowInfo(tk.Toplevel):
                                   text="  SKIP  ",
                                   font=("ABBvoice", "20"),
                                   command=self.skip)
-        self.skip_btn.grid(row=5, column=0, columnspan=2, padx=10, pady=10)
-        
-        self.all_command = scrolledtext.ScrolledText(main_frm, height=11, width=65)
-        self.all_command.insert("1.0", data)
+        self.skip_btn.grid(row=5, column=0, padx=10, pady=10)
+        self.pause_btn = tk.Button(main_frm,
+                                   text="  PAUSE  ",
+                                   font=("ABBvoice", "20"),
+                                   command=self.pause)
+        self.skip_btn.grid(row=6, column=0, padx=10, pady=10)
+
+        self.all_command = scrolledtext.ScrolledText(main_frm,
+                                                     height=11, width=65)
+        with pd.option_context('display.max_rows', None,
+                               'display.max_columns', None):
+            self.all_command.insert(tk.END, data)
         self.all_command.grid(row=0, rowspan=5, column=2, padx=5)
 
     def skip(self):
@@ -137,14 +143,28 @@ class ShowInfo(tk.Toplevel):
         self.skip_btn.grid_forget()
         self.update()
         self.after(1000, self.skip_btn.grid(
-            row=4, column=0, columnspan=2, padx=10, pady=10
+            row=5, column=0, padx=10, pady=10
             ))
 
+    def pause(self):
+        if self.pause_state:
+            self.play_event.set()
+            _logger.info("Resuming...")
+            self.skip_btn.configure(state="normal")
+            self.pause_btn.configure(text="  PAUSE  ")
+            self.update()
+        else:
+            self.play_event.clear()
+            _logger.info("Pausing...")
+            self.skip_btn.configure(state="disabled")
+            self.pause_btn.configure(text="  RESUME  ")
+            self.update()
+
     def update_text(self, instr: str, command: str, time_: str, index: int):
+        self.index_lbl.configure(text=str(index))
         self.instr_lbl.configure(text=instr)
         self.command_lbl.configure(text=command)
         self.time_lbl.configure(text=time_)
-        self.index_lbl.configure(text=str(index))
         _logger.debug(f"{instr} - {command}")
 
     def mainloop(self):
@@ -155,66 +175,94 @@ class ShowInfo(tk.Toplevel):
         if messagebox.askyesno("Closing", "Are you sure?"):
             self.destroy()
             self.master.destroy()
+            sys.exit()
         else:
             return
 
 
-class Select_GUI(tk.Tk):
-    """Address Selection"""
+class User_Options(ttk.Window):
 
-    def __init__(self, title: str, mode="SCPI"):
-        super().__init__()
-        self.title(title + " ADDRESS")
-        self.protocol("WM_DELETE_WINDOW", self.on_closing)
-        self.mode = mode
-        self.val = tk.StringVar(value=title + " Address")
-        self.cmb = ttk.Combobox(self,
-                                width=80,
-                                values=self.refresh_instr(rm),
-                                textvariable=self.val)
-        self.cmb.pack()
-        self.refresh_btn = tk.Button(self,
-                                     text="Refresh",
-                                     command=lambda: self.cmb.config(
-                                         values=self.refresh_instr(rm)
-                                         )
-                                     )
-        self.refresh_btn.pack()
-        self.mainloop()
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        
+        self.filename = tk.StringVar(value=FILENAME)
+        self.bool_var = {
+            "ITECH": tk.BooleanVar(value=ITECH_USAGE),
+            "CHROMA": tk.BooleanVar(value=CHROMA_USAGE),
+            "HP6032A": tk.BooleanVar(value=HP6032A_USAGE),
+            "MSO58B": tk.BooleanVar(value=MSO58B_USAGE),
+            "CHAMBER": tk.BooleanVar(value=CHAMBER_USAGE),
+            "ARM_XL": tk.BooleanVar(value=ARM_XL_USAGE),
+        }
+        self.string_var = {
+            "ITECH": tk.StringVar(value=ITECH_ADDRESS),
+            "CHROMA": tk.StringVar(value=CHROMA_ADDRESS),
+            "HP6032A": tk.StringVar(value=HP6032A_ADDRESS),
+            "MSO58B": tk.StringVar(value=MSO58B_ADDRESS),
+            "CHAMBER": tk.StringVar(value=CHAMBER_ADDRESS),
+            "ARM_XL": {
+                "host": tk.StringVar(value=ARM_XL_ADDRESS["host"]),
+                "user": tk.StringVar(value=ARM_XL_ADDRESS["user"]),
+                "pwd": tk.StringVar(value=ARM_XL_ADDRESS["pwd"])
+            }
+        }
+        self.__create_user_widget()
 
-    def refresh_instr(self, rm):
-        """Riaggiorna la lista strumenti VISA\n
-        Returns:
-            Tuple[str,...]: lista strumenti
-        """
-        if self.mode == "SCPI":
-            instrument_list = rm.list_resources()
-        elif self.mode == "COM":
-            import serial.tools.list_ports
+    def __create_user_widget(self):
+        user_frm = ttk.Frame(self)
+        user_frm.pack()
 
-            com_list = [comport.device
-                        for comport in serial.tools.list_ports.comports()]
-            instrument_list = com_list
-        elif self.mode == "IP":
-            result = os.popen("arp -a")
-            instrument_list = [j for i in result.read().splitlines()
-                               for j in (i.split(" ")) if j != "" and "." in j]
-        elif self.mode == "str":
-            instrument_list = []
+        file_frm = ttk.Labelframe(user_frm, text="COMMAND FILE", padding=2)
+        file_frm.pack(fill="both")
+        ttk.Entry(file_frm, textvariable=self.filename, width=40).pack(fill="x", expand=1, side="left", padx=2)
+        fileoption = dict(
+            title="Please select a file:",
+            defaultextension="*.xlsx",
+            filetypes=[
+                ("Tutti i file", "*.*"),
+                ("Sequenza Comandi", "*.xlsx"),
+                # ("File di configigurazione", "*.json"),
+                ("Tutti i File Excel", "*.xl*"),
+                ],
+            )
+        btn = ttk.Button(file_frm, text="SELECT", command=lambda opt=fileoption: self.filename.set(filedialog.askopenfilename(**opt)))
+        btn.pack(side="left", padx=2)
+        
+        scpi_frm = ttk.Labelframe(user_frm, text="SCPI/ModBus Instrument", padding=2)
+        scpi_frm.pack(fill="both")
+        ttk.Label(scpi_frm, text="USE").grid(row=0, column=1)
+        ttk.Label(scpi_frm, text="ADDRESS").grid(row=0, column=2)
+        for i, (lbl, var) in enumerate(self.string_var.items()):
+            if lbl == "ARM_XL":
+                continue
+            ttk.Label(scpi_frm, text=lbl, anchor="w").grid(row=i+1, column=0, padx=(5, 0), pady=2)
+            check = ttk.Checkbutton(scpi_frm, variable=self.bool_var[lbl], bootstyle="round-toggle")
+            check.grid(row=i+1, column=1, padx=(5, 0), pady=2)
+            ent = ttk.Entry(scpi_frm, textvariable=var, width=40)
+            ent.grid(row=i+1, column=2, padx=(5, 2), pady=2)
+            check.configure(command=lambda wd=ent, var=self.bool_var[lbl]: wd.configure(state="normal") if var.get() else wd.configure(state="disabled"))
 
-        return instrument_list
+        armxl_frm = ttk.Labelframe(user_frm, text="ARM_XL", padding=2)
+        armxl_frm.pack(fill="both")
+        ttk.Label(armxl_frm, text="USE", anchor="w").grid(row=0, column=0, padx=(5, 0), pady=2)
+        check = ttk.Checkbutton(armxl_frm, variable=self.bool_var["ARM_XL"], bootstyle="round-toggle")
+        check.grid(row=0, column=1, padx=(5, 0), pady=2)
+        ent_l = []
+        for i, (lbl, var) in enumerate(self.string_var["ARM_XL"].items()):
+            ttk.Label(armxl_frm, text=lbl, anchor="w").grid(row=i+1, column=0, padx=(5, 0), pady=2)
+            ent = ttk.Entry(armxl_frm, textvariable=var, width=20)
+            ent.grid(row=i+1, column=1, padx=(5, 2), pady=2)
+            ent_l.append(ent)
 
-    def on_closing(self):
-        self.destroy()
+        def on_off(var, wds):
+            if var.get():
+                s = "normal"
+            else:
+                s = "disabled"
+            for wd in wds:
+                wd.configure(state=s)
 
-
-def show_options(name: str, mode: str):
-    """Show options and get result"""
-    _logger.debug(f"Getting {name} address")
-    root = Select_GUI(name, mode)
-    add = root.val.get()
-    _logger.info(f"{name} address = {add}")
-    return add
+        check.configure(command=lambda wds=ent_l, var=self.bool_var["ARM_XL"]:  on_off(var, wds))
 
 
 def arg_parse(arg_str):
@@ -254,63 +302,81 @@ def parse_command(command: str, args: str):
     cmd = base_cmd + command + " " + args + " & >/dev/null\n"
     return cmd
 
+#################################
+# ----- # USER OPTIONS #  ----- #
+#################################
+root = User_Options()
+root.mainloop()
+usage_cfg = root.bool_var
+string_cfg = root.string_var
+# TODO add you sure?
+rm = pyvisa.ResourceManager()
+
 
 ########################
 # ----- GET DATA ----- #
 ########################
 _logger.debug("Getting data, check new sequence, add basic sequence")
-df, list_of_time, list_of_instr, list_of_command, list_of_args = get_data(filename=FILENAME, logger=_logger)
+df, list_of_time, list_of_instr, list_of_command, list_of_args = get_data(filename=FILENAME, logger=_logger)  # noqa: E501
 lenght = df.__len__()
 
 ##########################
 # ----- Connecting ----- #
 ##########################
 _logger.debug("Connecting all item...")
-# ITECH
-address = show_options("ITECH", "SCPI") if default is False else ITECH_ADDRESS
-if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
-    itech = ITECH()
-    itech.connect(address)
-else:
-    itech = None
-# CHROMA
-address = show_options("CHROMA", "SCPI") if default is False else CHROMA_ADDRESS
-if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
-    chroma = CHROMA()
-    chroma.connect(address)
-else:
-    chroma = None
-# HP6032A
-address = show_options("HP6032A", "SCPI") if default is False else HP6032A_ADDRESS
-if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
-    hp6032a = HP6032A()
-    hp6032a.connect(address)
-else:
-    hp6032a = None
-# MSO58B
-address = show_options("MSO58B", "SCPI") if default is False else MSO58B_ADDRESS
-if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")):
-    mso58b = MSO58B()
-    mso58b.connect(address)
-else:
-    mso58b = None
-# CHAMBER
-com_port = show_options("CHAMBER", "COM") if default is False else CHAMBER_ADDRESS
-if com_port.startswith(("COM", "tty")):
-    chamber = ACS_Discovery1200(com_port)
-else:
-    chamber = None
-# ARM-XL
-host = show_options("ARM-XL", "IP") if default is False else ARM_XL_ADDRESS["host"]
 try:
-    socket.inet_aton(host)
-    user = show_options("ARM-XL user", "str") if default is False else ARM_XL_ADDRESS["user"]
-    pwd = show_options("ARM-XL pwd", "str") if default is False else ARM_XL_ADDRESS["pwd"]
-    arm_xl = Charger(host=host,
-                     user=user,
-                     pwd=pwd)
-except socket.error:
-    arm_xl = None
+    # ITECH
+    address = string_cfg["ITECH"].get()
+    if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")) and usage_cfg["ITECH"].get() is True:  # noqa: E501
+        itech = ITECH()
+        itech.connect(address)
+        itech.config()
+    else:
+        itech = None
+    # CHROMA
+    address = string_cfg["CHROMA"].get()
+    if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")) and usage_cfg["CHROMA"].get() is True:  # noqa: E501
+        chroma = CHROMA()
+        chroma.connect(address)
+    else:
+        chroma = None
+    # HP6032A
+    address = string_cfg["HP6032A"].get()
+    if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")) and usage_cfg["HP6032A"].get() is True:  # noqa: E501
+        hp6032a = HP6032A()
+        hp6032a.connect(address)
+    else:
+        hp6032a = None
+    # MSO58B
+    address = string_cfg["MSO58B"].get()
+    if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")) and usage_cfg["MSO58B"].get() is True:  # noqa: E501
+        mso58b = MSO58B()
+        mso58b.connect(address)
+    else:
+        mso58b = None
+    # CHAMBER
+    com_port = string_cfg["CHAMBER"].get()
+    if com_port.startswith(("COM", "tty")) and usage_cfg["CHAMBER"].get() is True:  # noqa: E501
+        chamber = ACS_Discovery1200(com_port)
+    else:
+        chamber = None
+    # ARM-XL
+    if usage_cfg["ARM_XL"].get() is True:
+        host = string_cfg["ARM_XL"]["host"].get()
+        socket.inet_aton(host)
+        user = string_cfg["ARM_XL"]["user"].get()
+        pwd = string_cfg["ARM_XL"]["pwd"].get()
+        arm_xl = Charger(host=host,
+                         user=user,
+                         pwd=pwd)
+    else:
+        arm_xl = None
+except socket.error as e:
+    _logger.exception("SSH connection Error")
+    raise e
+except Exception as e:
+    _logger.exception("Connection Error")
+    raise e
 
 _logger.info("All items connected")
 instruments = {
@@ -330,50 +396,55 @@ instruments = {
 def run_test():
     _logger.info("Start sequence test")
     for i in range(lenght):
-        now = time.time()
-        time_ = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        skip_event.clear()
-        rel_time = next(list_of_time)
-        instr = instruments.get(next(list_of_instr).lower())
-        # --- ARMxl command --- #
-        if instr == arm_xl:
-            command = next(list_of_command)
-            args = next(list_of_args)
-            cmd = parse_command(command, args)
-            info_box.update_text(instr, f"{command} - {args}", time_, i)
-            # print(time_, instr, f" - send: {cmd}")
-            instr: Charger
-            instr._shell.send(cmd)
-        # --- sleep command --- #
-        # if instr == "sleep":
-        elif instr == "sleep":
-            info_box.update_text(instr, f"Wait {rel_time} seconds ", time_, i)
-            # print(time_, f"Wait {rel_time} seconds ")
-            _ = next(list_of_command)
-            _ = next(list_of_args)
-        # --- SCPI or MODBUS command --- #
-        # elif instr != "sleep":  # not arm_xl instrument
-        elif instr != arm_xl:  # not arm_xl instrument
-            func_ = next(list_of_command).strip()
-            command = getattr(instr, func_)
-            args = arg_parse(next(list_of_args))
-            info_box.update_text(instr, f"{func_} - {args}", time_, i)
-            # print(time_, instr, f"send: {command} - ", args)
-            if args is None:
-                command()
-            elif isinstance(args, tuple):
-                command(args)
-            else:
-                command(*args)
+        try:
+            # TODO pause_event
+            now = time.time()
+            time_ = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            skip_event.clear()
+            rel_time = next(list_of_time)
+            instr = instruments.get(next(list_of_instr).lower())
+            # --- ARMxl command --- #
+            if instr == arm_xl:
+                command = next(list_of_command)
+                args = next(list_of_args)
+                cmd = parse_command(command, args)
+                info_box.update_text(instr, f"{command} - {args}", time_, i)
+                instr: Charger
+                instr._shell.send(cmd)
+            # --- sleep command --- #
+            elif instr == "sleep":
+                info_box.update_text(
+                    instr, f"Wait {rel_time} seconds ", time_, i
+                    )
+                _ = next(list_of_command)
+                _ = next(list_of_args)
+            # --- SCPI or MODBUS command --- #
+            elif instr != arm_xl:  # not arm_xl instrument
+                func_ = next(list_of_command).strip()
+                command = getattr(instr, func_)
+                args = arg_parse(next(list_of_args))
+                info_box.update_text(instr, f"{func_} - {args}", time_, i)
+                if args is None:
+                    command()
+                elif isinstance(args, tuple):
+                    command(args)
+                else:
+                    command(*args)
+        except Exception:
+            # FIXME Not Exception, but SSH or PYVISA or PYMODBUS EXCEPTION
+            _logger.critical("Error during sequence execution", exc_info=1)
+            # _ = next(list_of_command)
+            # _ = next(list_of_args)
+            # continue
+            sys.exit(1)  # TODO safe exit
         else:
-            # print("No Instrument found\nPass to next command without wait")
-            _logger.warning("No Instrument found "
-                            "- pass to next command without wait")
-            _ = next(list_of_command)
-            _ = next(list_of_args)
-            continue
-        while time.time() - now < rel_time and not skip_event.is_set():
-            continue
+            while time.time() - now < rel_time and not skip_event.is_set():
+                if not play_event.is_set():
+                    passed_time = time.time() - now
+                    rel_time = rel_time - passed_time
+                    play_event.wait()
+                    now = time.time()
+
     info_box.master.destroy()
 
 
@@ -381,7 +452,9 @@ def run_test():
 # ----- INFO TK and RUN ----- #
 ###############################
 skip_event = threading.Event()
-info_box = ShowInfo(event=skip_event, data=df)
+play_event = threading.Event()
+play_event.set()
+info_box = ShowInfo(event=skip_event, data=df, play_event=play_event)
 t = threading.Thread(target=run_test, daemon=True)
 t.start()
 info_box.mainloop()

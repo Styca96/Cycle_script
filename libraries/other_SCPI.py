@@ -257,13 +257,13 @@ class ITECH(Instrument):
         self.set_cls()
         self.set_rst()
         self.get_idn()
-        self.set_terminator()
 
         self.config()
 
     def config(self):
         """Configurazione setup e measurement"""
-        self.set_setup(self.setup)
+        self.set_terminator()
+        # self.set_setup(self.setup)
 
     def save_config(self, n: int):
         assert isinstance(n, int) and 0 <= n <= 9
@@ -313,8 +313,8 @@ class ITECH(Instrument):
                 assert isinstance(time_to_set_s, float | int)
                 start_value = self._instrument.query_ascii_values("CURR?")
                 target_ = self.set_current
-                step = (value - start_value) / (time_to_set_s / self.TIMESTEP)
-                values = np.arange(start_value, value, step).tolist() + [value]
+                step = (value - start_value[0]) / (time_to_set_s / self.TIMESTEP)
+                values = np.arange(start_value[0], value, step).tolist() + [value]
                 t = threading.Thread(target=self.__gradient_setpoint,
                                      args=(target_, values, time_to_set_s),
                                      daemon=True)
@@ -638,6 +638,7 @@ class MSO58B(Instrument):  # VERIFY try this instrument
         super().__init__()
         self._setup = setup
         self._dataconfig = dataconfig
+        self.i = 0
 
     @property
     def setup(self):
@@ -680,25 +681,43 @@ class MSO58B(Instrument):  # VERIFY try this instrument
 
     # ----- function MSO58B ----- #
     # ----- predefine MSO58B ----- #
-    def save_screen(self, filepath: str = "default"):
+    def save_screen(self, filename: str = "Temp"):
         dt = datetime.datetime.now()
-        if filepath == "default":
-            filepath = dt.strftime("OSC/MSO58B_%Y%m%d-%H%M%S.png")
-        else:
-            filepath = dt.strftime(f"{filepath}_%Y%m%d-%H%M%S.png")
-        self.write_command('SAVE:IMAGe \"C:/Temp.png\"')
+        # if filename == "default":
+        #     filepath = dt.strftime("OSC/MSO58B_%Y%m%d-%H%M%S.png")
+        # else:
+        #     filepath = dt.strftime(f"OSC/{filename}_%Y%m%d-%H%M%S.png")
+        # self.__save_image(filename, filepath)
+        # workaround bug OSC save image on PC
+        name = dt.strftime(f"LowTemp-50_{self.i}_%Y%m%d-%H%M%S.png")
+        self.__save_image(name, "")
+
+    def save_zoom(self, filename: str = "Temp"):
+        # TODO horizontal and vertical position/scale
+        self.write_command("DISplay:WAVEView1:ZOOM:ZOOM1:STATe ON")
+        self.save_screen(filename)
+        self.write_command("DISplay:WAVEView1:ZOOM:ZOOM1:STATe OFF")
+    
+    def __save_image(self, filename: str, pc_path: str):
+        # BUG not working save image
+        # self.write_command('SAVE:IMAGe \"C:/{filename}.png\"')
+        # self.query_command("*OPC?")
+        # self.write_command('FILESystem:READFile \"C:/{filename}.png\"')
+        # imgData = self._instrument.read_raw(1024*1024)
+
+        # with open(pc_path, "wb") as file:
+        #     file.write(imgData)
+
+        # self.write_command('FILESystem:DELEte \"C:/{filename}.png\"')
+
+        # workaround bug OSC save image on PC
+        self.write_command(f'SAVE:IMAGe \"C:/{filename}\"')
         self.query_command("*OPC?")
-        self.write_command('FILESystem:READFile \"C:/Temp.png\"')
-        imgData = self._instrument.read_raw(1024*1024)
-
-        with open(filepath, "wb") as file:
-            file.write(imgData)
-
-        self.write_command('FILESystem:DELEte \"C:/Temp.png\"')
+        self.i += 1
 
     # ----- status and reading ----- #
     # ----- all COMMAND -----#
-    COMMAND = ["save_screen"]
+    COMMAND = ["save_screen", "save_zoom"]
 
 
 instrument: dict[str, Union[Type[ITECH],

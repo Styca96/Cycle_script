@@ -1,0 +1,10 @@
+__pycache__
+gitignore
+*.zip
+*.log*
+OSC/*
+command_debug.xlsx
+sequenc*
+setup_config.txt
+
+

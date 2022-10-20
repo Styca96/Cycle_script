@@ -51,7 +51,7 @@ for i in ['pandas', 'PIL', 'pyvisa', "paramiko"]:
     logger = logging.getLogger(i)
     logger.setLevel(logging.INFO)
 _logger = logging.getLogger(__name__)
-basic_handler.doRollover()
+basic_handler.doRollover()  # start rolling to new file
 
 ###############################
 # ----- DEFAULT OPTIONS ----- #
@@ -81,7 +81,7 @@ FILENAME = "command.xlsx"
 # ----- CLASS and FUNCTIONS ----- #
 ###################################
 class ShowInfo(tk.Toplevel):
-    """Info and Skip Toplevel"""
+    """Toplevel windows for Info during Test and Skip Button"""
 
     def __init__(self, parent=None,
                  event: threading.Event = None,
@@ -133,13 +133,15 @@ class ShowInfo(tk.Toplevel):
         self.all_command = scrolledtext.ScrolledText(main_frm,
                                                      height=11, width=65)
         with pd.option_context('display.max_rows', None,
-                               'display.max_columns', None):
+                               'display.max_columns', None):  # remove limits for showing Dataframe
             self.all_command.insert(tk.END, data)
         self.all_command.grid(row=0, rowspan=5, column=2, padx=5)
 
     def skip(self):
+        """Set skipping event"""
         self.skip_event.set()
         _logger.info("Skipping...")
+        # block multiple click on skipping button
         self.skip_btn.grid_forget()
         self.update()
         self.after(1000, self.skip_btn.grid(
@@ -147,6 +149,7 @@ class ShowInfo(tk.Toplevel):
             ))
 
     def pause(self):
+        """Set/Unset Pause event"""
         if self.pause_state:
             self.play_event.set()
             _logger.info("Resuming...")
@@ -161,6 +164,13 @@ class ShowInfo(tk.Toplevel):
             self.update()
 
     def update_text(self, instr: str, command: str, time_: str, index: int):
+        """Update actual execution\n
+        Args:
+            instr (str): Instrument
+            command (str): Command
+            time_ (str): Time to wait after
+            index (int): index in dataframe
+        """
         self.index_lbl.configure(text=str(index))
         self.instr_lbl.configure(text=instr)
         self.command_lbl.configure(text=command)
@@ -168,11 +178,13 @@ class ShowInfo(tk.Toplevel):
         _logger.debug(f"{instr} - {command}")
 
     def mainloop(self):
+        """Loop of gui"""
         self.master.iconify()
         super().mainloop()
 
     def on_closing(self):
         if messagebox.askyesno("Closing", "Are you sure?"):
+            # destroy self and Tk and exit program
             self.destroy()
             self.master.destroy()
             sys.exit()
@@ -181,6 +193,7 @@ class ShowInfo(tk.Toplevel):
 
 
 class User_Options(ttk.Window):
+    """Toplevel windows for instrument configuration before Sequence start"""
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -277,7 +290,6 @@ def arg_parse(arg_str):
     elif isinstance(arg_str, int) or isinstance(arg_str, float):
         return [arg_str]
     else:
-        "".split()
         args = [i.split() if len(i.split()) > 1 else i
                 for i in arg_str.split()]
 
@@ -302,22 +314,23 @@ def parse_command(command: str, args: str):
     cmd = base_cmd + command + " " + args + " & >/dev/null\n"
     return cmd
 
+
 #################################
 # ----- # USER OPTIONS #  ----- #
 #################################
 root = User_Options()
 root.mainloop()
+# TODO add you sure?
 usage_cfg = root.bool_var
 string_cfg = root.string_var
 filename = root.filename.get()
 _logger.info("Get user configuration")
-# TODO add you sure?
-rm = pyvisa.ResourceManager()
 
 
 ########################
 # ----- GET DATA ----- #
 ########################
+rm = pyvisa.ResourceManager()
 _logger.debug("Getting data, check new sequence, add basic sequence")
 df, list_of_time, list_of_instr, list_of_command, list_of_args = get_data(filename=filename, logger=_logger)  # noqa: E501
 lenght = df.__len__()
@@ -404,6 +417,7 @@ if error_instr != []:
                          message=f"Missing: \n-{message}")
     raise Exception("Missing necessary Instruments")
 
+
 ###############################
 # ----- EXECUTE COMMAND ----- #
 ###############################
@@ -411,7 +425,6 @@ def run_test():
     _logger.info("Start sequence test")
     for i in range(lenght):
         try:
-            # TODO pause_event
             now = time.time()
             time_ = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             skip_event.clear()

@@ -10,7 +10,7 @@ from logging.handlers import RotatingFileHandler
 from tkinter import filedialog, messagebox, scrolledtext
 from types import NoneType
 from typing import Iterable
-
+import yaml
 import pandas as pd
 import pyvisa
 import ttkbootstrap as ttk
@@ -56,25 +56,30 @@ basic_handler.doRollover()  # start rolling to new file
 ###############################
 # ----- DEFAULT OPTIONS ----- #
 ###############################
-# USAGE OPTIONS
-ITECH_USAGE = True
-CHROMA_USAGE = True
-HP6032A_USAGE = True
-MSO58B_USAGE = True
-CHAMBER_USAGE = True
-ARM_XL_USAGE = True
 
-# DEFAULT CONNECTION STRING
-ITECH_ADDRESS = "TCPIP0::192.168.0.102::30000::SOCKET"
-CHROMA_ADDRESS = "TCPIP0::192.168.0.101::2101::SOCKET"
-CHAMBER_ADDRESS = "COM3"
-HP6032A_ADDRESS = "GPIB::5::INSTR"
-MSO58B_ADDRESS = "TCPIP0::192.168.0.107::inst0::INSTR"
-ARM_XL_ADDRESS = {"host": "192.168.0.103",
-                  "user": "root",
-                  "pwd": "ABB"}
+with open(f"{os.path.dirname(os.path.abspath(__file__))}/setup.yml", "r", encoding='utf-8') as f:
+    txt_data = f.read()
+    yaml_data = yaml.safe_load(txt_data)
+default_opt = yaml_data["default"]
+# # USAGE OPTIONS
+# ITECH_USAGE = True
+# CHROMA_USAGE = True
+# HP6032A_USAGE = True
+# MSO58B_USAGE = True
+# CHAMBER_USAGE = True
+# ARM_XL_USAGE = True
 
-FILENAME = "command.xlsx"
+# # DEFAULT CONNECTION STRING
+# ITECH_ADDRESS = "TCPIP0::192.168.0.102::30000::SOCKET"
+# CHROMA_ADDRESS = "TCPIP0::192.168.0.101::2101::SOCKET"
+# CHAMBER_ADDRESS = "COM3"
+# HP6032A_ADDRESS = "GPIB::5::INSTR"
+# MSO58B_ADDRESS = "TCPIP0::192.168.0.107::inst0::INSTR"
+# ARM_XL_ADDRESS = {"host": "192.168.0.103",
+#                   "user": "root",
+#                   "pwd": "ABB"}
+
+# FILENAME = "command.xlsx"
 
 
 ###################################
@@ -197,33 +202,65 @@ class User_Options(ttk.Window):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-        
-        self.filename = tk.StringVar(value=FILENAME)
+
+        data = yaml_data["default"]
+        self.filename = tk.StringVar(value=data["FILENAME"])
         self.bool_var = {
-            "ITECH": tk.BooleanVar(value=ITECH_USAGE),
-            "CHROMA": tk.BooleanVar(value=CHROMA_USAGE),
-            "HP6032A": tk.BooleanVar(value=HP6032A_USAGE),
-            "MSO58B": tk.BooleanVar(value=MSO58B_USAGE),
-            "CHAMBER": tk.BooleanVar(value=CHAMBER_USAGE),
-            "ARM_XL": tk.BooleanVar(value=ARM_XL_USAGE),
+            "ITECH": tk.BooleanVar(value=data["ITECH_USAGE"]),
+            "CHROMA": tk.BooleanVar(value=data["CHROMA_USAGE"]),
+            "HP6032A": tk.BooleanVar(value=data["HP6032A_USAGE"]),
+            "MSO58B": tk.BooleanVar(value=data["MSO58B_USAGE"]),
+            "CHAMBER": tk.BooleanVar(value=data["CHAMBER_USAGE"]),
+            "ARM_XL": tk.BooleanVar(value=data["ARM_XL_USAGE"]),
         }
         self.string_var = {
-            "ITECH": tk.StringVar(value=ITECH_ADDRESS),
-            "CHROMA": tk.StringVar(value=CHROMA_ADDRESS),
-            "HP6032A": tk.StringVar(value=HP6032A_ADDRESS),
-            "MSO58B": tk.StringVar(value=MSO58B_ADDRESS),
-            "CHAMBER": tk.StringVar(value=CHAMBER_ADDRESS),
+            "ITECH": tk.StringVar(value=data["ITECH_ADDRESS"]),
+            "CHROMA": tk.StringVar(value=data["CHROMA_ADDRESS"]),
+            "HP6032A": tk.StringVar(value=data["HP6032A_ADDRESS"]),
+            "MSO58B": tk.StringVar(value=data["MSO58B_ADDRESS"]),
+            "CHAMBER": tk.StringVar(value=data["CHAMBER_ADDRESS"]),
             "ARM_XL": {
-                "host": tk.StringVar(value=ARM_XL_ADDRESS["host"]),
-                "user": tk.StringVar(value=ARM_XL_ADDRESS["user"]),
-                "pwd": tk.StringVar(value=ARM_XL_ADDRESS["pwd"])
+                "host": tk.StringVar(value=data["ARM_XL_ADDRESS"]["host"]),
+                "user": tk.StringVar(value=data["ARM_XL_ADDRESS"]["user"]),
+                "pwd": tk.StringVar(value=data["ARM_XL_ADDRESS"]["pwd"])
             }
         }
         self.__create_user_widget()
 
+    def set_value(self, event):
+        wd = event.widget
+        setup = wd.get()
+        if setup == "":
+            setup = "default"
+        data = yaml_data[setup]
+        self.bool_var["ITECH"].set(data["ITECH_USAGE"])
+        self.bool_var["CHROMA"].set(data["CHROMA_USAGE"])
+        self.bool_var["HP6032A"].set(data["HP6032A_USAGE"])
+        self.bool_var["MSO58B"].set(data["MSO58B_USAGE"])
+        self.bool_var["CHAMBER"].set(data["CHAMBER_USAGE"])
+        self.bool_var["ARM_XL"].set(data["ARM_XL_USAGE"])
+
+        self.string_var["ITECH"].set(data["ITECH_ADDRESS"])
+        self.string_var["CHROMA"].set(data["CHROMA_ADDRESS"])
+        self.string_var["HP6032A"].set(data["HP6032A_ADDRESS"])
+        self.string_var["MSO58B"].set(data["MSO58B_ADDRESS"])
+        self.string_var["CHAMBER"].set(data["CHAMBER_ADDRESS"])
+        self.string_var["ARM_XL"]["host"].set(data["ARM_XL_ADDRESS"]["host"])
+        self.string_var["ARM_XL"]["user"].set(data["ARM_XL_ADDRESS"]["user"])
+        self.string_var["ARM_XL"]["pwd"].set(data["ARM_XL_ADDRESS"]["pwd"])
+
+        self.filename.set(data["FILENAME"])
+
     def __create_user_widget(self):
         user_frm = ttk.Frame(self)
         user_frm.pack()
+
+        setup_frm = ttk.Labelframe(user_frm, text="PREDEFINE SETUP", padding=2)
+        setup_frm.pack(fill="both")
+        ttk.Label(setup_frm, text="Setup:").grid(row=0, column=0, pady=2, padx=5)
+        setup_cmb = ttk.Combobox(setup_frm, values=list(yaml_data.keys()), state="readonly")
+        setup_cmb.grid(row=0, column=1, pady=2, padx=5)
+        setup_cmb.bind("<<ComboboxSelected>>", self.set_value)
 
         file_frm = ttk.Labelframe(user_frm, text="COMMAND FILE", padding=2)
         file_frm.pack(fill="both")
@@ -240,7 +277,7 @@ class User_Options(ttk.Window):
             )
         btn = ttk.Button(file_frm, text="SELECT", command=lambda opt=fileoption: self.filename.set(filedialog.askopenfilename(**opt)))
         btn.pack(side="left", padx=2)
-        
+
         scpi_frm = ttk.Labelframe(user_frm, text="SCPI/ModBus Instrument", padding=2)
         scpi_frm.pack(fill="both")
         ttk.Label(scpi_frm, text="USE").grid(row=0, column=1)
@@ -388,11 +425,11 @@ try:
         arm_xl = None
 except socket.error as e:
     _logger.exception("SSH connection Error")
-    messagebox.showerror(e)
+    messagebox.showerror(message=e)
     raise e
 except Exception as e:
     _logger.exception("Connection Error")
-    messagebox.showerror(e)
+    messagebox.showerror(message=e)
     raise e
 _logger.info("All items connected")
 
@@ -462,7 +499,7 @@ def run_test():
         except Exception as e:
             # FIXME Not Exception, but SSH or PYVISA or PYMODBUS EXCEPTION
             _logger.critical("Error during sequence execution", exc_info=1)
-            messagebox.showerror(e)
+            messagebox.showerror(message=e)
             # _ = next(list_of_command)
             # _ = next(list_of_args)
             # continue

@@ -335,7 +335,6 @@ class ITECH(Instrument):
         else:
             self._instrument.write(f'VOLTage:LIMit:POSitive {v_pos}')
             self._instrument.write(f'VOLTage:LIMit:NEGative {v_neg}')
-            
 
     # # --- cv mode --- # #
     def set_voltage(self, value: int | float, time_to_set_s: None | int = None):  # VERIFY time_to_set_s # noqa: E501
@@ -704,7 +703,7 @@ class MSO58B(Instrument):  # VERIFY try this instrument
         self.write_command("DISplay:WAVEView1:ZOOM:ZOOM1:STATe ON")
         self.save_screen(filename)
         self.write_command("DISplay:WAVEView1:ZOOM:ZOOM1:STATe OFF")
-    
+
     def __save_image(self, filename: str, pc_path: str):
         # BUG not working save image
         # self.write_command('SAVE:IMAGe \"C:/{filename}.png\"')

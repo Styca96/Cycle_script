@@ -327,8 +327,15 @@ class ITECH(Instrument):
         Args:
             values (tuple[float, float]): coppia valore Vl-Vh
         """
-        self._instrument.write(f'VOLTage:LIMit:NEGative {v_neg}')
-        self._instrument.write(f'VOLTage:LIMit:POSitive {v_pos}')
+        # actual_pos = self._instrument.query("VOLTage:LIMit:POSitive?")
+        actual_neg = self._instrument.query("VOLTage:LIMit:NEGative?")
+        if v_pos <= actual_neg:
+            self._instrument.write(f'VOLTage:LIMit:NEGative {v_neg}')
+            self._instrument.write(f'VOLTage:LIMit:POSitive {v_pos}')
+        else:
+            self._instrument.write(f'VOLTage:LIMit:POSitive {v_pos}')
+            self._instrument.write(f'VOLTage:LIMit:NEGative {v_neg}')
+            
 
     # # --- cv mode --- # #
     def set_voltage(self, value: int | float, time_to_set_s: None | int = None):  # VERIFY time_to_set_s # noqa: E501

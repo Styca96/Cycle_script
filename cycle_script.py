@@ -388,9 +388,11 @@ try:
         arm_xl = None
 except socket.error as e:
     _logger.exception("SSH connection Error")
+    messagebox.showerror(e)
     raise e
 except Exception as e:
     _logger.exception("Connection Error")
+    messagebox.showerror(e)
     raise e
 _logger.info("All items connected")
 
@@ -457,9 +459,10 @@ def run_test():
                     command(args)
                 else:
                     command(*args)
-        except Exception:
+        except Exception as e:
             # FIXME Not Exception, but SSH or PYVISA or PYMODBUS EXCEPTION
             _logger.critical("Error during sequence execution", exc_info=1)
+            messagebox.showerror(e)
             # _ = next(list_of_command)
             # _ = next(list_of_args)
             # continue

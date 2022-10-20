@@ -5,5 +5,5 @@ gitignore
 OSC/*
 command_debug.xlsx
 setup_config.txt
-
+*.xlsx
 

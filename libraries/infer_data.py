@@ -78,37 +78,44 @@ def add_sequence(df: pd.DataFrame, logger) -> pd.DataFrame:
         if sequence_df.__len__() == 0:
             return df
 
-        def f(index, name):
+        def f(name):
             path_ = USER_SEQUENCE_DIR + f"{name}.yaml"
             with open(path_, "r") as f:
                 sq = pd.DataFrame(yaml.safe_load(f))
-            return (index, sq)
+            return sq
 
         sq_list = [
-            f(x, y) for x, y in zip(sequence_df.index, sequence_df["Command"])
+            (x, y, f(z)) for x, y, z in zip(sequence_df.index, sequence_df["Time"], sequence_df["Command"])
             ]
 
         new_df = df.copy()
-        for i, sq_cmd in sq_list[-1::-1]:
-            if i == 0:
-                new_df = pd.concat([sq_cmd, new_df.loc[i+1:]])
-            elif i == df.index[-1]:
-                new_df = pd.concat([new_df.loc[:i-1], sq_cmd])
+        for i, reply, sq_cmd in sq_list[-1::-1]:
+            if reply == 0:  # 0 in reply == non eseguire sequence
+                temp_sq = pd.DataFrame()
             else:
-                new_df = pd.concat([new_df.loc[:i-1], sq_cmd, new_df.loc[i+1:]])
+                temp_sq = sq_cmd.copy()
+                for _ in range(1, reply):
+                    temp_sq = pd.concat([temp_sq, sq_cmd])
+
+            if i == 0:
+                new_df = pd.concat([temp_sq, new_df.loc[i+1:]])
+            elif i == df.index[-1]:
+                new_df = pd.concat([new_df.loc[:i-1], temp_sq])
+            else:
+                new_df = pd.concat([new_df.loc[:i-1], temp_sq, new_df.loc[i+1:]])
             new_df = new_df.reset_index(drop=True)
-        
+
         # # iter if sequence inside other sequence
         # add_sequence(new_df, logger)
         return new_df
-    
+
     except Exception as e:
         title = "Base Sequence Error"
         message = "Errore adding SEQUENCE"
         if logger:
             logger.error(message)
         show_error(title, message, e)
-        raise e        
+        raise e
 
 
 def check_sequence(df: pd.DataFrame, logger):

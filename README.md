@@ -26,10 +26,9 @@ Can command:
 - ARMxl (SSH protocol)
 - User define sequence (Sequence)
 
-# CLONE REPOSITORY
-
-* Open Git Bash and run:
-
-```
-git clone https://github.com/Styca96/Cycle_script.git --branch working
-```
+## Command
+For each line specify:
+- Time: time to wait after the execution of the command. If the instrument is **sequence**, it represents the *number of repetitions* of the sequence
+- Istrument: Object that is to perform the function. If is **sleep** wait only the time specified by *Time*
+- Command: executable method of the selected instrument. If the instrument is **ARMxl**, it represents the *script* inside the root folder
+- Argument: positional argument for the command. if no argument is needed enter **-**

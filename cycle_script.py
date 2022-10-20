@@ -309,6 +309,7 @@ root = User_Options()
 root.mainloop()
 usage_cfg = root.bool_var
 string_cfg = root.string_var
+filename = root.filename.get()
 # TODO add you sure?
 rm = pyvisa.ResourceManager()
 
@@ -317,7 +318,7 @@ rm = pyvisa.ResourceManager()
 # ----- GET DATA ----- #
 ########################
 _logger.debug("Getting data, check new sequence, add basic sequence")
-df, list_of_time, list_of_instr, list_of_command, list_of_args = get_data(filename=FILENAME, logger=_logger)  # noqa: E501
+df, list_of_time, list_of_instr, list_of_command, list_of_args = get_data(filename=filename, logger=_logger)  # noqa: E501
 lenght = df.__len__()
 
 ##########################

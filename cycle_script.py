@@ -310,6 +310,7 @@ root.mainloop()
 usage_cfg = root.bool_var
 string_cfg = root.string_var
 filename = root.filename.get()
+_logger.info("Get user configuration")
 # TODO add you sure?
 rm = pyvisa.ResourceManager()
 
@@ -378,8 +379,8 @@ except socket.error as e:
 except Exception as e:
     _logger.exception("Connection Error")
     raise e
-
 _logger.info("All items connected")
+
 instruments = {
     "dc_source": itech,
     "ac_source": chroma,
@@ -390,6 +391,18 @@ instruments = {
     "sleep": "sleep",
     }
 
+_logger.debug("Instrument check")
+needed_instr = set(df.Instrument)
+error_instr = []
+for i in needed_instr:
+    if instruments.get(i.lower()) is None:
+        error_instr.append(i)
+if error_instr != []:
+    _logger.error("Missing necessary Instruments")
+    message = '\n-'.join(error_instr)
+    messagebox.showerror(title="Missing necessary Instruments",
+                         message=f"Missing: \n-{message}")
+    raise Exception("Missing necessary Instruments")
 
 ###############################
 # ----- EXECUTE COMMAND ----- #

@@ -18,7 +18,7 @@ import yaml
 
 from libraries.Chamber import ACS_Discovery1200
 from libraries.Connection import Charger
-from libraries.infer_data import get_data
+from libraries.infer_data import USER_SEQUENCE_DIR, get_data
 from libraries.other_SCPI import CHROMA, HP6032A, ITECH, MSO58B, SORENSEN
 
 ###############################
@@ -504,6 +504,7 @@ def run_test():
             # FIXME Not Exception, but SSH or PYVISA or PYMODBUS EXCEPTION
             _logger.critical("Error during sequence execution", exc_info=1)
             messagebox.showerror(message=e)
+            safe_exit()
             # _ = next(list_of_command)
             # _ = next(list_of_args)
             # continue
@@ -517,6 +518,115 @@ def run_test():
                     now = time.time()
 
     info_box.master.destroy()
+
+
+def safe_exit():
+    for i in range(2):
+        # load safe exit sequence data
+        _logger.info("Getting SAFE EXIT")
+        safe_exit_data = yaml.safe_load(SAFE_EXIT_FILE)
+        
+        _logger.info("Getting SAFE EXIT sequence")
+        sequence = safe_exit_data["command"]
+        SAFE_EXIT_FILE = USER_SEQUENCE_DIR + f"{'SAFE_EXIT'}.yaml"
+        sq = pd.DataFrame(sequence)
+        _time = iter(sq.Time)
+        _instr = iter(sq.Instrument)
+        _command = iter(sq.Command)
+        _args = iter(sq.Argument)
+        
+        _logger.info("Connecting all item for SAFE EXIT")
+        instr_add = safe_exit_data["address"]
+        itech = None
+        chroma = None
+        hp6032a = None
+        sorensen = None
+        chamber = None
+        arm_xl = None
+        for i in instr_add:
+            try:
+                if "ITECH" in i:
+                    itech = ITECH()
+                    connect, error = itech.connect(instr_add[i]) # TODO change to this from get_idn
+                    if not connect:
+                        raise error
+                    itech.config()
+                elif "CHROMA" in i:
+                    chroma = CHROMA()
+                    connect, error = chroma.connect(instr_add[i]) # TODO change to this from get_idn
+                    if not connect:
+                        raise error
+                elif "HP6032A" in i:
+                    hp6032a = CHROMA()
+                    connect, error = hp6032a.connect(instr_add[i]) # TODO change to this from get_idn
+                    if not connect:
+                        raise error
+                elif "SORENSEN" in i:
+                    sorensen = CHROMA()
+                    connect, error = sorensen.connect(instr_add[i]) # TODO change to this from get_idn
+                    if not connect:
+                        raise error
+                elif "CHAMBER" in i:
+                    chamber = ACS_Discovery1200(instr_add[i])
+                elif "ARM_XL" in i:
+                    host = instr_add[i]["host"].get()
+                    socket.inet_aton(host)
+                    user = instr_add[i]["user"].get()
+                    pwd = instr_add[i]["pwd"].get()
+                    arm_xl = Charger(host=host,
+                                    user=user,
+                                    pwd=pwd)
+            except Exception as e:
+                _logger.exception("SAFE EXIT instrument fail to connect")
+                continue
+        _logger.info("All items connected")
+
+        instruments = {
+            "dc_source": itech,
+            "ac_source": chroma,
+            "powersupply": hp6032a,
+            "sorensen": sorensen,
+            "clim_chamber": chamber,
+            "armxl": arm_xl,
+            "oscilloscope": mso58b,
+            "sleep": "sleep",
+            }
+        
+        _logger.info("Starting SAFE EXIT sequence")
+        for i in range(len(sq)):
+            try:
+                now = time.time()
+                time_ = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                rel_time = next(_time)
+                instr = instruments.get(next(_instr).lower())
+                # --- ARMxl command --- #
+                if instr == arm_xl:
+                    command = next(_command)
+                    args = next(_args)
+                    cmd = parse_command(command, args)
+                    instr: Charger
+                    instr._shell.send(cmd)
+                # --- sleep command --- #
+                elif instr == "sleep":
+                    _ = next(_command)
+                    _ = next(_args)
+                # --- SCPI or MODBUS command --- #
+                elif instr != arm_xl:  # not arm_xl instrument
+                    func_ = next(_command).strip()
+                    command = getattr(instr, func_)
+                    args = arg_parse(next(args))
+                    if args is None:
+                        command()
+                    elif isinstance(args, tuple):
+                        command(args)
+                    else:
+                        command(*args)
+            except Exception as e:
+                _logger.warning("Error during SAFE EXIT execution execution", exc_info=1)
+                continue
+            else:
+                _logger.info("Finish SAFE EXIT sequence")
+                
 
 
 ###############################

@@ -26,6 +26,15 @@ instr_dict = {
 
 
 def get_data(all_data=False, filename: str = "command.xlsx", logger=None):
+    """Parse and get all necessary for sequence test execution\n
+    Args:
+        all_data (bool, optional): True for cycle_graphics. Defaults to False.
+        filename (str, optional): file where sequence is. Defaults to "command.xlsx".
+        logger (_type_, optional): logger to use. Defaults to None.
+
+    Raises:
+        NotImplementedError: json file is not implemented now
+    """
     now = time.time()  # XXX debug read excel
     if filename == "command.xlsx":
         filepath = path.dirname(path.dirname(path.realpath(__file__)))

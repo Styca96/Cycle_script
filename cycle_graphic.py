@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+from tkinter import filedialog
+
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import matplotlib.style as mplstyle
@@ -28,7 +30,18 @@ mpltick.AutoMinorLocator = MyLocator
 ##########################################################
 # # -------------------- get data -------------------- # #
 ##########################################################
-df: pd.DataFrame = get_data(all_data=True)
+fileoption = dict(
+    title="Please select a file:",
+    defaultextension="*.xlsx",
+    filetypes=[
+        ("Tutti i file", "*.*"),
+        ("Sequenza Comandi", "*.xlsx"),
+        # ("File di configigurazione", "*.json"),
+        ("Tutti i File Excel", "*.xl*"),
+        ],
+    )
+filename = filedialog.askopenfilename(**fileoption)
+df: pd.DataFrame = get_data(all_data=True, filename=filename)
 df.insert(0, "AbsTime", df.Time.cumsum())
 line = pd.DataFrame({"AbsTime": 0, "Time": 0,  # create time 0 for starting
                      "Instrument": "-", "Command": "-",

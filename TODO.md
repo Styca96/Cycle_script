@@ -1,4 +1,5 @@
 # TODO
+
 * [ ] OSC bug
 * [X] Pause execution:
 
@@ -11,7 +12,7 @@
   * Un cambio di parametro alla volta
   * schema da fare
   * esempio in prova2.json
-* [ ] Distribuzione aggiornamenti
+* [X] Distribuzione aggiornamenti
 
   * [X] SourceTree or other GIT method
 * [ ] Verifica esecuzione e lancio procedura stop se crash

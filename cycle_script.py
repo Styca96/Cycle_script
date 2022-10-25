@@ -10,15 +10,16 @@ from logging.handlers import RotatingFileHandler
 from tkinter import filedialog, messagebox, scrolledtext
 from types import NoneType
 from typing import Iterable
-import yaml
+
 import pandas as pd
 import pyvisa
 import ttkbootstrap as ttk
+import yaml
 
 from libraries.Chamber import ACS_Discovery1200
 from libraries.Connection import Charger
 from libraries.infer_data import get_data
-from libraries.other_SCPI import CHROMA, HP6032A, ITECH, MSO58B
+from libraries.other_SCPI import CHROMA, HP6032A, ITECH, MSO58B, SORENSEN
 
 ###############################
 # ----- LOGGING OPTIONS ----- #
@@ -61,26 +62,6 @@ with open(f"{os.path.dirname(os.path.abspath(__file__))}/setup.yml", "r", encodi
     txt_data = f.read()
     yaml_data = yaml.safe_load(txt_data)
 default_opt = yaml_data["default"]
-# # USAGE OPTIONS
-# ITECH_USAGE = True
-# CHROMA_USAGE = True
-# HP6032A_USAGE = True
-# MSO58B_USAGE = True
-# CHAMBER_USAGE = True
-# ARM_XL_USAGE = True
-
-# # DEFAULT CONNECTION STRING
-# ITECH_ADDRESS = "TCPIP0::192.168.0.102::30000::SOCKET"
-# CHROMA_ADDRESS = "TCPIP0::192.168.0.101::2101::SOCKET"
-# CHAMBER_ADDRESS = "COM3"
-# HP6032A_ADDRESS = "GPIB::5::INSTR"
-# MSO58B_ADDRESS = "TCPIP0::192.168.0.107::inst0::INSTR"
-# ARM_XL_ADDRESS = {"host": "192.168.0.103",
-#                   "user": "root",
-#                   "pwd": "ABB"}
-
-# FILENAME = "command.xlsx"
-
 
 ###################################
 # ----- CLASS and FUNCTIONS ----- #
@@ -209,6 +190,7 @@ class User_Options(ttk.Window):
             "ITECH": tk.BooleanVar(value=data["ITECH_USAGE"]),
             "CHROMA": tk.BooleanVar(value=data["CHROMA_USAGE"]),
             "HP6032A": tk.BooleanVar(value=data["HP6032A_USAGE"]),
+            "SORENSEN": tk.BooleanVar(value=data["SORENSEN_USAGE"]),
             "MSO58B": tk.BooleanVar(value=data["MSO58B_USAGE"]),
             "CHAMBER": tk.BooleanVar(value=data["CHAMBER_USAGE"]),
             "ARM_XL": tk.BooleanVar(value=data["ARM_XL_USAGE"]),
@@ -217,6 +199,7 @@ class User_Options(ttk.Window):
             "ITECH": tk.StringVar(value=data["ITECH_ADDRESS"]),
             "CHROMA": tk.StringVar(value=data["CHROMA_ADDRESS"]),
             "HP6032A": tk.StringVar(value=data["HP6032A_ADDRESS"]),
+            "SORENSEN": tk.StringVar(value=data["SORENSEN_ADDRESS"]),
             "MSO58B": tk.StringVar(value=data["MSO58B_ADDRESS"]),
             "CHAMBER": tk.StringVar(value=data["CHAMBER_ADDRESS"]),
             "ARM_XL": {
@@ -314,6 +297,9 @@ class User_Options(ttk.Window):
 
         check.configure(command=lambda wds=ent_l, var=self.bool_var["ARM_XL"]:  on_off(var, wds))
 
+        btn = ttk.Button(user_frm, text="CONFIRM AND RUN", command=self.destroy, bootstyle="success")
+        btn.pack(pady=5)
+
 
 def arg_parse(arg_str):
     """Parsing argument from str type"""
@@ -356,6 +342,7 @@ def parse_command(command: str, args: str):
 # ----- # USER OPTIONS #  ----- #
 #################################
 root = User_Options()
+root.protocol("WM_DELETE_WINDOW", lambda: sys.exit(1))
 root.mainloop()
 # TODO add you sure?
 usage_cfg = root.bool_var
@@ -390,6 +377,7 @@ try:
     if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")) and usage_cfg["CHROMA"].get() is True:  # noqa: E501
         chroma = CHROMA()
         chroma.connect(address)
+        chroma.get_idn()
     else:
         chroma = None
     # HP6032A
@@ -397,13 +385,24 @@ try:
     if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")) and usage_cfg["HP6032A"].get() is True:  # noqa: E501
         hp6032a = HP6032A()
         hp6032a.connect(address)
+        hp6032a.get_idn()
     else:
         hp6032a = None
+    # SORENSEN
+    address = string_cfg["SORENSEN"].get()
+    if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")) and usage_cfg["SORENSEN"].get() is True:  # noqa: E501
+        sorensen = SORENSEN()
+        connect, error = sorensen.connect(address) # TODO change to this from get_idn
+        if not connect:
+            raise error
+    else:
+        sorensen = None
     # MSO58B
     address = string_cfg["MSO58B"].get()
     if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")) and usage_cfg["MSO58B"].get() is True:  # noqa: E501
         mso58b = MSO58B()
         mso58b.connect(address)
+        mso58b.get_idn()
     else:
         mso58b = None
     # CHAMBER
@@ -427,6 +426,10 @@ except socket.error as e:
     _logger.exception("SSH connection Error")
     messagebox.showerror(message=e)
     raise e
+except AttributeError as e:
+    _logger.exception("SCPI Connection Error")
+    messagebox.showerror(message=e)
+    raise e
 except Exception as e:
     _logger.exception("Connection Error")
     messagebox.showerror(message=e)
@@ -437,6 +440,7 @@ instruments = {
     "dc_source": itech,
     "ac_source": chroma,
     "powersupply": hp6032a,
+    "sorensen": sorensen,
     "clim_chamber": chamber,
     "armxl": arm_xl,
     "oscilloscope": mso58b,

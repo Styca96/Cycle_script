@@ -54,7 +54,21 @@ df_arm = df.loc[df['Instrument'] == "armxl"]
 df_ac = df.loc[df['Instrument'] == "ac_source"]
 df_dc = df.loc[df['Instrument'] == "dc_source"]
 
-
+if TIME_SEC[-1]//(3600*24)>0:
+    plt.rcParams["date.epoch"] = "2022-01-01T00:00:00"
+    plt.rcParams["date.autoformatter.day"] = "%d-%H"
+    plt.rcParams["date.autoformatter.hour"] = "%d-%H:%M"
+    plt.rcParams["date.autoformatter.minute"] = "%d-%H:%M:%S"
+    plt.rcParams["date.autoformatter.second"] = "%d-%H:%M:%S"
+    plt.rcParams["axes.autolimit_mode"] = "round_numbers"
+else:
+    plt.rcParams["date.epoch"] = "2022-01-01T00:00:00"
+    plt.rcParams["date.autoformatter.day"] = "%d-%H"
+    plt.rcParams["date.autoformatter.hour"] = "%H:%M"
+    plt.rcParams["date.autoformatter.minute"] = "%H:%M:%S"
+    plt.rcParams["date.autoformatter.second"] = "%H:%M:%S"
+    plt.rcParams["axes.autolimit_mode"] = "round_numbers"
+    
 ###################################################################
 # # -------------------- plot and function -------------------- # #
 ###################################################################
@@ -73,10 +87,11 @@ def parse(time_: list[int], data: list[int]) -> tuple[list[int], list[int]]:
     new_time.append(last_time)
     hms_time = []
     for totsec in new_time:
-        h = int(totsec//3600)
+        d = int(totsec//(3600*24))+1
+        h = int((totsec % (3600*24))//3600)
         m = int((totsec % 3600) // 60)
         sec = (totsec % 3600) % 60
-        hms_time.append(f"{h:02d}:{m:02d}:{sec:04.1f}")
+        hms_time.append(f"{d:02d} {h:02d}:{m:02d}:{sec:04.1f}")
     mpl_date = mdates.datestr2num(hms_time)
     return mdates.num2date(mpl_date), new_data
     return new_time, new_data
@@ -112,7 +127,13 @@ ax_arm.grid(True, which='minor', axis='x', linestyle=':')
 ax_ac.grid(True, which='minor', axis='x', linestyle=':')
 ax_dc.grid(True, which='minor', axis='x', linestyle=':')
 ax_dc.tick_params(axis="x", which="both", colors="black")
-date_form = mdates.DateFormatter("%H:%M:%S")
+_loc = mdates.AutoDateLocator(minticks=4, maxticks=9)
+# _form = mdates.AutoDateFormatter(_loc)
+# frame.ax1.xaxis.set_major_locator(_loc)
+# frame.ax1.xaxis.set_major_formatter(_form)
+
+date_form = mdates.AutoDateFormatter(_loc, defaultfmt="%d-%H:%M:%S")
+# date_form = mdates.DateFormatter(fmt="%H:%M:%S")
 ax_dc.xaxis.set_major_formatter(date_form)
 
 #########################################################

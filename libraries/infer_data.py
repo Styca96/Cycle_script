@@ -8,7 +8,7 @@ import yaml
 
 from .Chamber import ACS_Discovery1200
 from .Connection import ARES_COMMAND
-from .other_SCPI import CHROMA, HP6032A, ITECH, MSO58B
+from .other_SCPI import CHROMA, HP6032A, ITECH, MSO58B, SORENSEN
 
 USER_SEQUENCE_DIR = (f"{path.dirname(path.abspath(__package__))}"
                      "/predefine_sequence/")
@@ -16,6 +16,7 @@ instr_dict = {
     "dc_source": ITECH,
     "ac_source": CHROMA,
     "powersupply": HP6032A,
+    "sorensen": SORENSEN,
     "clim_chamber": ACS_Discovery1200,
     # FIXME default command for ARES, not based on library or Charger class
     "armxl": ARES_COMMAND,

@@ -85,7 +85,7 @@ class Instrument:
     def get_idn(self):
         """Lettura Id Strumento"""
         tempid = self._instrument.query("*IDN?")
-        name = self._instrument.resource_info.alias
+        name = self._instrument.resource_info.resource_name
         self.alias = name
         self.nameid = tempid
         return tempid
@@ -523,7 +523,9 @@ class CHROMA(Instrument):
 
 
 class HP6032A(Instrument):
-
+    typeOfInstrument = "Power Supply"
+    manufactor = "HP"
+    
     def __init__(self, setup: dict = {}, dataconfig: dict = {}) -> None:
         super().__init__()
         self._setup = setup
@@ -726,14 +728,125 @@ class MSO58B(Instrument):  # VERIFY try this instrument
     COMMAND = ["save_screen", "save_zoom"]
 
 
+class SORENSEN(Instrument): # VERIFY try this instrument
+    typeOfInstrument = "Power Supply"
+    manufactor = "AMETEK - Programmable power"
+    port = 9221
+    UserID="admin"
+    Password="password"
+    # <boolean> 
+    # “ON” or 1. “OFF” or 0. 
+    # <NR1> 
+    # The data format <NR1> is defined in IEEE 488.2 for integers. 
+    # Zero, positive and negative integer numeric values are valid data. 
+    # <NRf> 
+    # The data format <NRf> is defined in IEEE 488.2 for flexible Numeric 
+    # Representation.  Zero, positive and negative floating point numeric 
+    # values are some examples of valid data. 
+    # <string>
+    # Characters enclosed by single or double quotes. 
+    
+    # Voltage “VOLTS” or “volts”, “V” or “v”, “MV” or “mv” or “mV” 
+    # Current “AMPS” or “amps”, “A” or “a”, “MA” or “ma” or “mA” 
+    # Time “SEC” or “sec”, “S” or “s”, “MS” or “ms”, “MIN” or “min” 
+    # Frequency “HZ” or “hz” 
+
+    def __init__(self, setup: dict = {}, dataconfig: dict = {}):
+        super().__init__()
+        self._setup = setup
+        self._dataconfig = dataconfig
+    
+    @property
+    def setup(self):
+        return self._setup_option
+
+    @setup.setter
+    def setup(self, value: dict):
+        assert isinstance(value, dict)
+        self._setup_option = value
+
+    @property
+    def dataconfig(self):
+        return self._dataconfig
+
+    @dataconfig.setter
+    def dataconfig(self, value: dict):
+        assert isinstance(value, dict)
+        self._dataconfig = value
+        
+    def set_terminator(self) -> str:
+        """Setta carattere terminatore sia in scrittura che in lettura"""
+        self._instrument.read_termination = "\n"
+        self._instrument.write_termination = "\n"
+        return "read_terminator:\t \\n\nwrite_terminator:\t \\n"
+
+    # ----- Configuration function ----- #
+    def ResetConfig(self):
+        """Reset e configura strumento"""
+        self.set_cls()
+        self.set_rst()  # VERIFY RESET si o no
+        self.get_idn()
+        self.set_terminator()
+
+        self.config()
+
+    def config(self):
+        """Configurazione setup e measurement"""
+        self.set_setup(self.setup)
+        # self.set_data_configuration(self.dataconfig)
+
+    # ----- function SORENSEN ----- #
+    def set_current(self, value: float | None = None, time_to_set: int | None = None):
+        match value, time_to_set:
+            case None,_:
+                return self._instrument.query("SOUR:CURR?")
+            case int() | float() as value, None:
+                return self._instrument.write(f"SOUR:CURR {value}")
+            case int() | float() as value, int() as time_to_set:
+                return self._instrument.write(f"SOUR:CURR:RAMP {value}, {time_to_set}")
+            
+    def set_voltage(self, value: float | None = None, time_to_set: int | None = None):
+        match value, time_to_set:
+            case None,_:
+                return self._instrument.query("SOUR:VOLT?")
+            case int() | float() as value, None:
+                return self._instrument.write(f"SOUR:VOLT {value}")
+            case int() | float() as value, int() as time_to_set:
+                return self._instrument.write(f"SOUR:VOLT:RAMP {value}, {time_to_set}")
+
+    def set_output(self, state: bool | Literal["on", "off"]):
+        if isinstance(state, str):
+            if state in ("on", "ON"):
+                state = 1
+            else:
+                state = 0
+        self._instrument.write(f"OUTPUT:STATE {int(state)}")
+
+    # ----- predefine SORENSEN ----- #
+    # ----- status and reading ----- #
+    def read_measure(self, mode: Literal["current", "voltage"]):
+        if mode == "current":
+            return self._instrument.query("MEAS:CURR?")
+        elif mode == "voltage":
+            return self._instrument.query("MEAS:VOLT?")
+        else:
+            raise KeyError("misura non disponibile\nSeleziona tra"
+                           " 'current' o 'voltage'")
+    # ----- all COMMAND -----#
+    COMMAND = ["set_output", "set_current", "set_voltage"]
+
+
+
 instrument: dict[str, Union[Type[ITECH],
                             Type[CHROMA],
                             Type[HP6032A],
-                            Type[MSO58B]]] = {
+                            Type[MSO58B],
+                            Type[SORENSEN]]] = {
                                                 "ITECH": ITECH,
                                                 "CHROMA": CHROMA,
                                                 "HP6032A": HP6032A,
-                                                "MSO58B": MSO58B
+                                                "MSO58B": MSO58B,
+                                                "SORENSEN": SORENSEN
                                                 }
 
 

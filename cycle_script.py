@@ -63,6 +63,7 @@ with open(f"{os.path.dirname(os.path.abspath(__file__))}/setup.yml", "r", encodi
     yaml_data = yaml.safe_load(txt_data)
 default_opt = yaml_data["default"]
 
+
 ###################################
 # ----- CLASS and FUNCTIONS ----- #
 ###################################
@@ -220,6 +221,7 @@ class User_Options(ttk.Window):
         self.bool_var["CHROMA"].set(data["CHROMA_USAGE"])
         self.bool_var["HP6032A"].set(data["HP6032A_USAGE"])
         self.bool_var["MSO58B"].set(data["MSO58B_USAGE"])
+        self.bool_var["SORENSEN"].set(data["SORENSEN_USAGE"])
         self.bool_var["CHAMBER"].set(data["CHAMBER_USAGE"])
         self.bool_var["ARM_XL"].set(data["ARM_XL_USAGE"])
 
@@ -227,6 +229,7 @@ class User_Options(ttk.Window):
         self.string_var["CHROMA"].set(data["CHROMA_ADDRESS"])
         self.string_var["HP6032A"].set(data["HP6032A_ADDRESS"])
         self.string_var["MSO58B"].set(data["MSO58B_ADDRESS"])
+        self.string_var["SORENSEN"].set(data["SORENSEN_ADDRESS"])
         self.string_var["CHAMBER"].set(data["CHAMBER_ADDRESS"])
         self.string_var["ARM_XL"]["host"].set(data["ARM_XL_ADDRESS"]["host"])
         self.string_var["ARM_XL"]["user"].set(data["ARM_XL_ADDRESS"]["user"])
@@ -342,7 +345,7 @@ def parse_command(command: str, args: str):
 # ----- # USER OPTIONS #  ----- #
 #################################
 root = User_Options()
-root.protocol("WM_DELETE_WINDOW", lambda: sys.exit(1))
+root.protocol("WM_DELETE_WINDOW", lambda: sys.exit(0))
 root.mainloop()
 # TODO add you sure?
 usage_cfg = root.bool_var
@@ -392,7 +395,7 @@ try:
     address = string_cfg["SORENSEN"].get()
     if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")) and usage_cfg["SORENSEN"].get() is True:  # noqa: E501
         sorensen = SORENSEN()
-        connect, error = sorensen.connect(address) # TODO change to this from get_idn
+        connect, error = sorensen.connect(address)  # TODO change to this from get_idn
         if not connect:
             raise error
     else:
@@ -500,15 +503,11 @@ def run_test():
                     command(args)
                 else:
                     command(*args)
-        except Exception as e:
+        except Exception:
             # FIXME Not Exception, but SSH or PYVISA or PYMODBUS EXCEPTION
             _logger.critical("Error during sequence execution", exc_info=1)
-            messagebox.showerror(message=e)
             safe_exit()
-            # _ = next(list_of_command)
-            # _ = next(list_of_args)
-            # continue
-            sys.exit(1)  # TODO safe exit
+            sys.exit(1)
         else:
             while time.time() - now < rel_time and not skip_event.is_set():
                 if not play_event.is_set():
@@ -524,19 +523,20 @@ def safe_exit():
     for i in range(2):
         # load safe exit sequence data
         _logger.info("Getting SAFE EXIT")
+        info_box.update_text("ERROR", "SAFE EXIT", time.time(), float("inf"))
+        SAFE_EXIT_FILE = USER_SEQUENCE_DIR + f"{'SAFE_EXIT'}.yaml"
         safe_exit_data = yaml.safe_load(SAFE_EXIT_FILE)
-        
+
         _logger.info("Getting SAFE EXIT sequence")
         sequence = safe_exit_data["command"]
-        SAFE_EXIT_FILE = USER_SEQUENCE_DIR + f"{'SAFE_EXIT'}.yaml"
         sq = pd.DataFrame(sequence)
         _time = iter(sq.Time)
         _instr = iter(sq.Instrument)
         _command = iter(sq.Command)
         _args = iter(sq.Argument)
-        
+
         _logger.info("Connecting all item for SAFE EXIT")
-        instr_add = safe_exit_data["address"]
+        instr_add = string_cfg
         itech = None
         chroma = None
         hp6032a = None
@@ -547,36 +547,36 @@ def safe_exit():
             try:
                 if "ITECH" in i:
                     itech = ITECH()
-                    connect, error = itech.connect(instr_add[i]) # TODO change to this from get_idn
+                    connect, error = itech.connect(instr_add[i].get())
                     if not connect:
                         raise error
                     itech.config()
                 elif "CHROMA" in i:
                     chroma = CHROMA()
-                    connect, error = chroma.connect(instr_add[i]) # TODO change to this from get_idn
+                    connect, error = chroma.connect(instr_add[i].get())
                     if not connect:
                         raise error
                 elif "HP6032A" in i:
                     hp6032a = CHROMA()
-                    connect, error = hp6032a.connect(instr_add[i]) # TODO change to this from get_idn
+                    connect, error = hp6032a.connect(instr_add[i].get())
                     if not connect:
                         raise error
                 elif "SORENSEN" in i:
                     sorensen = CHROMA()
-                    connect, error = sorensen.connect(instr_add[i]) # TODO change to this from get_idn
+                    connect, error = sorensen.connect(instr_add[i].get())
                     if not connect:
                         raise error
                 elif "CHAMBER" in i:
-                    chamber = ACS_Discovery1200(instr_add[i])
+                    chamber = ACS_Discovery1200(instr_add[i].get())
                 elif "ARM_XL" in i:
                     host = instr_add[i]["host"].get()
                     socket.inet_aton(host)
                     user = instr_add[i]["user"].get()
                     pwd = instr_add[i]["pwd"].get()
                     arm_xl = Charger(host=host,
-                                    user=user,
-                                    pwd=pwd)
-            except Exception as e:
+                                     user=user,
+                                     pwd=pwd)
+            except Exception:
                 _logger.exception("SAFE EXIT instrument fail to connect")
                 continue
         _logger.info("All items connected")
@@ -591,12 +591,11 @@ def safe_exit():
             "oscilloscope": mso58b,
             "sleep": "sleep",
             }
-        
+
         _logger.info("Starting SAFE EXIT sequence")
         for i in range(len(sq)):
             try:
                 now = time.time()
-                time_ = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                 rel_time = next(_time)
                 instr = instruments.get(next(_instr).lower())
                 # --- ARMxl command --- #
@@ -621,12 +620,16 @@ def safe_exit():
                         command(args)
                     else:
                         command(*args)
-            except Exception as e:
+            except Exception:
                 _logger.warning("Error during SAFE EXIT execution execution", exc_info=1)
                 continue
             else:
-                _logger.info("Finish SAFE EXIT sequence")
-                
+                while time.time() - now < rel_time:
+                    pass
+
+        _logger.info("Finish SAFE EXIT sequence")
+
+    info_box.master.destroy()
 
 
 ###############################

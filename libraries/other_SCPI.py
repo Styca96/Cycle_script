@@ -329,7 +329,7 @@ class ITECH(Instrument):
         """
         # actual_pos = self._instrument.query("VOLTage:LIMit:POSitive?")
         actual_neg = self._instrument.query_ascii_values("VOLTage:LIMit:NEGative?")
-        if v_pos <= actual_neg:
+        if v_pos <= actual_neg[0]:
             self._instrument.write(f'VOLTage:LIMit:NEGative {v_neg}')
             self._instrument.write(f'VOLTage:LIMit:POSitive {v_pos}')
         else:
@@ -439,17 +439,18 @@ class CHROMA(Instrument):
     # ----- Configuration function ----- #
     def ResetConfig(self):
         """Reset e configura strumento"""
+        self.set_terminator()
         self.set_cls()
         self.set_rst()
         self.get_idn()
-        self.set_terminator()
 
         self.config()
 
     def config(self):
         """Configurazione setup e measurement"""
+        self.set_terminator()
         self._instrument.write("INSTrument:COUPle ALL")  # setup for all phase
-        self.set_setup(self.setup)
+        # self.set_setup(self.setup)
         # self.set_data_configuration(self.dataconfig)
 
     # ----- function CHROMA ----- #
@@ -697,7 +698,7 @@ class MSO58B(Instrument):  # VERIFY try this instrument
         #     filepath = dt.strftime(f"OSC/{filename}_%Y%m%d-%H%M%S.png")
         # self.__save_image(filename, filepath)
         # workaround bug OSC save image on PC
-        name = dt.strftime(f"LowTemp-50_{self.i}_%Y%m%d-%H%M%S.png")
+        name = dt.strftime(f"Cycle_Image_{self.i}_%Y%m%d-%H%M%S.png")
         self.__save_image(name, "")
 
     def save_zoom(self, filename: str = "Temp"):

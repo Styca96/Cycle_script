@@ -22,7 +22,7 @@ class MyLocator(mpltick.AutoMinorLocator):
 
 
 # mplstyle options
-mplstyle.use("seaborn-darkgrid")
+mplstyle.use("seaborn-v0_8-darkgrid")
 plt.rcParams["axes.grid.axis"] = "x"
 plt.rcParams["xtick.minor.bottom"] = True
 mpltick.AutoMinorLocator = MyLocator
@@ -30,17 +30,17 @@ mpltick.AutoMinorLocator = MyLocator
 ##########################################################
 # # -------------------- get data -------------------- # #
 ##########################################################
-fileoption = dict(
+file_options = dict(
     title="Please select a file:",
     defaultextension="*.xlsx",
     filetypes=[
         ("Tutti i file", "*.*"),
         ("Sequenza Comandi", "*.xlsx"),
-        # ("File di configigurazione", "*.json"),
+        # ("File di configurazione", "*.json"),
         ("Tutti i File Excel", "*.xl*"),
-        ],
-    )
-filename = filedialog.askopenfilename(**fileoption)
+    ],
+)
+filename = filedialog.askopenfilename(**file_options)
 df: pd.DataFrame = get_data(all_data=True, filename=filename)
 df.insert(0, "AbsTime", df.Time.cumsum())
 line = pd.DataFrame({"AbsTime": 0, "Time": 0,  # create time 0 for starting
@@ -54,7 +54,7 @@ df_arm = df.loc[df['Instrument'] == "armxl"]
 df_ac = df.loc[df['Instrument'] == "ac_source"]
 df_dc = df.loc[df['Instrument'] == "dc_source"]
 
-if TIME_SEC[-1]//(3600*24)>0:
+if TIME_SEC[-1] // (3600 * 24) > 0:
     plt.rcParams["date.epoch"] = "2022-01-01T00:00:00"
     plt.rcParams["date.autoformatter.day"] = "%d-%H"
     plt.rcParams["date.autoformatter.hour"] = "%d-%H:%M"
@@ -68,14 +68,15 @@ else:
     plt.rcParams["date.autoformatter.minute"] = "%H:%M:%S"
     plt.rcParams["date.autoformatter.second"] = "%H:%M:%S"
     plt.rcParams["axes.autolimit_mode"] = "round_numbers"
-    
+
+
 ###################################################################
 # # -------------------- plot and function -------------------- # #
 ###################################################################
-def parse(time_: list[int], data: list[int]) -> tuple[list[int], list[int]]:
-    """Parse data for mantain last data until last time\n
+def parse(time_info: list[int], data: list[int]) -> tuple[list[int], list[int]]:
+    """Parse data for maintain last data until last time\n
     Args:
-        time_ (list[int]): time data
+        time_info (list[int]): time data
         data (list[int]): value data\n
     Returns:
         tuple[list[int], list[int]]: correct data
@@ -83,32 +84,32 @@ def parse(time_: list[int], data: list[int]) -> tuple[list[int], list[int]]:
     new_data = data.copy()
     new_data.append(data[-1])  # copy last value
     last_time = TIME_SEC[1]  # add last time
-    new_time = time_.copy()
+    new_time = time_info.copy()
     new_time.append(last_time)
     hms_time = []
-    for totsec in new_time:
-        d = int(totsec//(3600*24))+1
-        h = int((totsec % (3600*24))//3600)
-        m = int((totsec % 3600) // 60)
-        sec = (totsec % 3600) % 60
+    for tot_sec in new_time:
+        d = int(tot_sec // (3600 * 24)) + 1
+        h = int((tot_sec % (3600 * 24)) // 3600)
+        m = int((tot_sec % 3600) // 60)
+        sec = (tot_sec % 3600) % 60
         hms_time.append(f"{d:02d} {h:02d}:{m:02d}:{sec:04.1f}")
     mpl_date = mdates.datestr2num(hms_time)
     return mdates.num2date(mpl_date), new_data
-    return new_time, new_data
+    # return new_time, new_data
 
 
-def parse_vertical(time_: int):
-    date_ , _ = parse([time_], [None])
+def parse_vertical(time_info: int):
+    date_, _ = parse([time_info], [None])
     return mdates.date2num(date_[0])
 
 
 def set_spines(ax) -> None:
     """Configure spine for all twin axes"""
 
-    def make_patch_spines_invisible(ax):
-        ax.set_frame_on(True)
-        ax.patch.set_visible(False)
-        ax.spines[:].set_visible(False)
+    def make_patch_spines_invisible(axes):
+        axes.set_frame_on(True)
+        axes.patch.set_visible(False)
+        axes.spines[:].set_visible(False)
 
     ax.spines["right"].set_position(("axes", 1.05))
     make_patch_spines_invisible(ax)
@@ -117,10 +118,10 @@ def set_spines(ax) -> None:
 
 fig, (ax_ch, ax_arm, ax_ac, ax_dc) = plt.subplots(
     4, figsize=(8, 4), dpi=125, sharex=True
-    )
+)
 fig.set_tight_layout(
     {"pad": 0.5, "w_pad": 0.1, "h_pad": 0.1, "rect": None}
-    )
+)
 plt.minorticks_on()
 ax_ch.grid(True, which='minor', axis='x', linestyle=':')
 ax_arm.grid(True, which='minor', axis='x', linestyle=':')
@@ -141,7 +142,7 @@ ax_dc.xaxis.set_major_formatter(date_form)
 #########################################################
 # parse data
 df_ch_temp = df_ch.loc[df_ch['Command'] == "write_setpoint"]
-time_ = [0] + df.AbsTime.iloc[df_ch_temp.index-1].to_list()
+time_ = [0] + df.AbsTime.iloc[df_ch_temp.index - 1].to_list()
 args = df_ch_temp.Argument.to_list()
 temp = [None]  # add base value
 hum = [None]  # add base value
@@ -165,13 +166,13 @@ for i in args:
         final_value = int(sample[1])
         step_setpoint = np.linspace(
             start_value, final_value, int(sample[2]) + 1
-            )
+        )
         step_time = []
-        for i in range(len(step_setpoint)-1):
-            step_time.append(start_time + i*60)
-            val.append(step_setpoint[i+1])
+        for i in range(len(step_setpoint) - 1):
+            step_time.append(start_time + i * 60)
+            val.append(step_setpoint[i + 1])
             not_val.append(not_val[-1])
-        time_[index:index+1] = step_time  # insert new time
+        time_[index:index + 1] = step_time  # insert new time
     else:
         val.append(int(sample[1]))
         not_val.append(not_val[-1])
@@ -198,7 +199,7 @@ leg.set_draggable(True)
 # parse data
 cycle = iter(plt.rcParams['axes.prop_cycle'].by_key()['color'])
 df_arm_out = df_arm.loc[df_arm['Command'].str.endswith("charge_session.sh")]
-time_out = [0] + df.AbsTime.iloc[df_arm_out.index-1].to_list()
+time_out = [0] + df.AbsTime.iloc[df_arm_out.index - 1].to_list()
 output = [None] + df_arm_out.Command.str.startswith("start").to_list()
 df_arm_set = pd.concat([df_arm, df_arm_out]).drop_duplicates(keep=False)
 # df_arm_set = df_arm.drop(df_arm_out.index)
@@ -213,22 +214,22 @@ for abs_time, cmd, value in zip(df_arm_set.AbsTime.index,
                                 df_arm_set.Argument):
     values = value.split()
     if len(value.split()) == 2:  # voltage & power
-        time_v.append(df.AbsTime[abs_time-1])
-        time_p.append(df.AbsTime[abs_time-1])
-        v_setpoint.append(int(values[0])/10)
-        p_setpoint.append(int(values[1])/10)
+        time_v.append(df.AbsTime[abs_time - 1])
+        time_p.append(df.AbsTime[abs_time - 1])
+        v_setpoint.append(int(values[0]) / 10)
+        p_setpoint.append(int(values[1]) / 10)
     elif cmd.endswith("power.sh"):
-        time_p.append(df.AbsTime[abs_time-1])
-        p_setpoint.append(int(values[0])/10)
+        time_p.append(df.AbsTime[abs_time - 1])
+        p_setpoint.append(int(values[0]) / 10)
     elif cmd.endswith("voltage.sh"):
-        time_v.append(df.AbsTime[abs_time-1])
-        v_setpoint.append(int(values[0])/10)
+        time_v.append(df.AbsTime[abs_time - 1])
+        v_setpoint.append(int(values[0]) / 10)
     elif cmd.endswith("reactive.sh"):
-        time_r.append(df.AbsTime[abs_time-1])
+        time_r.append(df.AbsTime[abs_time - 1])
         if int(values[0]) > 32000:
-            r_setpoint.append((int(values[0])-32768)/-10)
+            r_setpoint.append((int(values[0]) - 32768) / -10)
         else:
-            r_setpoint.append(int(values[0])/10)
+            r_setpoint.append(int(values[0]) / 10)
 
 # plot
 # ax_arm.set_xmargin(5)
@@ -257,7 +258,7 @@ leg.set_draggable(True)
 # parse data
 cycle = iter(plt.rcParams['axes.prop_cycle'].by_key()['color'])
 df_ac_out = df_ac.loc[df_ac['Command'].str.endswith("set_output")]
-time_ = [0] + df.AbsTime.iloc[df_ac_out.index-1].to_list()
+time_ = [0] + df.AbsTime.iloc[df_ac_out.index - 1].to_list()
 output = [None] + df_ac_out.Argument.isin(("on", "ON", "On", 1, True)).to_list()  # noqa: E501
 df_ac_set = pd.concat([df_ac, df_ac_out]).drop_duplicates(keep=False)
 time_v = [0]
@@ -269,20 +270,20 @@ for abs_time, cmd, value in zip(df_ac_set.AbsTime.index,
                                 df_ac_set.Argument):
     if cmd == "set_voltage":
         v_setpoint.append(int(value.split()[0]))
-        time_v.append(df.AbsTime[abs_time-1])
+        time_v.append(df.AbsTime[abs_time - 1])
     elif cmd == "set_frequency":
         f_setpoint.append(int(value.split()[0]))
-        time_f.append(df.AbsTime[abs_time-1])
+        time_f.append(df.AbsTime[abs_time - 1])
     elif cmd == "europe_grid":
         v_setpoint.append(230)
-        time_v.append(df.AbsTime[abs_time-1])
+        time_v.append(df.AbsTime[abs_time - 1])
         f_setpoint.append(50)
-        time_f.append(df.AbsTime[abs_time-1])
+        time_f.append(df.AbsTime[abs_time - 1])
     elif cmd == "usa_grid":
         v_setpoint.append(277)
-        time_v.append(df.AbsTime[abs_time-1])
+        time_v.append(df.AbsTime[abs_time - 1])
         f_setpoint.append(60)
-        time_f.append(df.AbsTime[abs_time-1])
+        time_f.append(df.AbsTime[abs_time - 1])
 
 # plot
 # ax_arm.set_xmargin(5)
@@ -309,7 +310,7 @@ leg.set_draggable(True)
 # parse data
 cycle = iter(plt.rcParams['axes.prop_cycle'].by_key()['color'])
 df_dc_out = df_dc.loc[df_dc['Command'].str.endswith("set_output")]
-time_ = [0] + df.AbsTime.iloc[df_dc_out.index-1].to_list()
+time_ = [0] + df.AbsTime.iloc[df_dc_out.index - 1].to_list()
 output = [None] + df_dc_out.Argument.isin(("on", "ON", "On", 1, True)).to_list()  # noqa: E501
 df_dc_set = pd.concat([df_dc, df_dc_out]).drop_duplicates(keep=False)
 
@@ -331,28 +332,28 @@ for abs_time, cmd, value in zip(df_dc_set.AbsTime.index,
                                 df_dc_set.Argument):
     if cmd == "set_function":
         # ax_dc.axvline(df.AbsTime[abs_time-1])
-        ax_dc.axvline(parse_vertical(df.AbsTime[abs_time-1]))
+        ax_dc.axvline(parse_vertical(df.AbsTime[abs_time - 1]))
         if value == "voltage":
-            ax_dc3.text(parse_vertical(df.AbsTime[abs_time-1] + 0.1), 0.1,
+            ax_dc3.text(parse_vertical(df.AbsTime[abs_time - 1] + 0.1), 0.1,
                         "CV mode", rotation=90)
             if mode is not None:  # set to None all value becouse changed mode
                 vh_setpoint.append(None)
-                time_vh.append(df.AbsTime[abs_time-1])
+                time_vh.append(df.AbsTime[abs_time - 1])
                 vl_setpoint.append(None)
-                time_vl.append(df.AbsTime[abs_time-1])
+                time_vl.append(df.AbsTime[abs_time - 1])
                 ih_setpoint.append(None)
-                time_ih.append(df.AbsTime[abs_time-1])
+                time_ih.append(df.AbsTime[abs_time - 1])
             mode = "voltage"
         elif value == "current":
-            ax_dc3.text(parse_vertical(df.AbsTime[abs_time-1] + 0.1), 0.1,
+            ax_dc3.text(parse_vertical(df.AbsTime[abs_time - 1] + 0.1), 0.1,
                         "CC mode", rotation=90)
             if mode is not None:  # set to None all value becouse changed mode
                 vh_setpoint.append(None)
-                time_vh.append(df.AbsTime[abs_time-1])
+                time_vh.append(df.AbsTime[abs_time - 1])
                 ih_setpoint.append(None)
-                time_ih.append(df.AbsTime[abs_time-1])
+                time_ih.append(df.AbsTime[abs_time - 1])
                 il_setpoint.append(None)
-                time_il.append(df.AbsTime[abs_time-1])
+                time_il.append(df.AbsTime[abs_time - 1])
             mode = "current"
         continue
 
@@ -375,22 +376,22 @@ for abs_time, cmd, value in zip(df_dc_set.AbsTime.index,
             values = np.arange(start_value, final_value, step
                                ).tolist() + [final_value]
             for i in range(len(values) - 1):
-                val_time.append(df.AbsTime[abs_time-1] + i*ITECH.TIMESTEP)
-                val_list.append(values[i+1])
+                val_time.append(df.AbsTime[abs_time - 1] + i * ITECH.TIMESTEP)
+                val_list.append(values[i + 1])
         else:
             val_list.append(int(split_val[0]))
-            val_time.append(df.AbsTime[abs_time-1])
+            val_time.append(df.AbsTime[abs_time - 1])
 
     elif cmd == "set_v_limit":
         vh_setpoint.append(int(split_val[1]))
-        time_vh.append(df.AbsTime[abs_time-1])
+        time_vh.append(df.AbsTime[abs_time - 1])
         vl_setpoint.append(int(split_val[0]))
-        time_vl.append(df.AbsTime[abs_time-1])
+        time_vl.append(df.AbsTime[abs_time - 1])
     elif cmd == "set_c_limit":
         ih_setpoint.append(int(split_val[1]))
-        time_ih.append(df.AbsTime[abs_time-1])
+        time_ih.append(df.AbsTime[abs_time - 1])
         il_setpoint.append(int(split_val[0]))
-        time_il.append(df.AbsTime[abs_time-1])
+        time_il.append(df.AbsTime[abs_time - 1])
 
 # continue plot
 ax_dc.set_ylabel("DC Source\nV")
@@ -411,7 +412,6 @@ set_spines(ax_dc3)
 lns = [p1, p1b, p2, p2b, p3]
 leg = ax_dc3.legend(handles=lns, loc="upper right")
 leg.set_draggable(True)
-
 
 # ----- show plot ----- #
 plt.show()

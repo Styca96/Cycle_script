@@ -377,7 +377,7 @@ try:
     if address.startswith(("ASRL", "GPIB", "PXI", "visa", "TCPIP", "USB", "VXI")) and usage_cfg["CHROMA"].get() is True:  # noqa: E501
         chroma = CHROMA()
         chroma.connect(address)
-        chroma.get_idn()
+        chroma.config()
     else:
         chroma = None
     # HP6032A

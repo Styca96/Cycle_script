@@ -1,10 +1,13 @@
 import datetime
 import logging
+import threading
 import time
 from typing import Callable, Iterable, Literal, Type, Union
 
 import numpy as np
 import pyvisa
+
+from Connection import Charger
 
 _logger = logging.getLogger()
 
@@ -29,7 +32,7 @@ class Instrument:
             (GPIB, USB, TCPIP, ...)"""
         try:
             self._instrument = pyvisa.ResourceManager(
-                ).open_resource(id_string)
+            ).open_resource(id_string)
             self.connection = True
             _logger.debug(f"instrument at {id_string} connected")
             return True, None
@@ -61,7 +64,7 @@ class Instrument:
         """Imposta data e ora attuale nello strumento"""
         raise NotImplementedError("Comando da sovrascrivere")
 
-    def set_setup(self, setuo_option):  # vuoto
+    def set_setup(self, setup_option):  # vuoto
         """Configura Impostazioni di setup\n
         Args:
             setup_option (dict): dizionario delle impostazioni"""
@@ -294,9 +297,9 @@ class ITECH(Instrument):
     def __gradient_setpoint(self, target: Callable,
                             values: Iterable, timer: float):  # VERIFY gradient
         start = time.time()
-        for i in range(len(values)-1):
+        for i in range(len(values) - 1):
             now = time.time()
-            target(values[i+1])
+            target(values[i + 1])
             while (time.time() <= (now + self.TIMESTEP) and
                    (time.time() - start) < timer):
                 continue
@@ -526,7 +529,7 @@ class CHROMA(Instrument):
 class HP6032A(Instrument):
     typeOfInstrument = "Power Supply"
     manufactor = "HP"
-    
+
     def __init__(self, setup: dict = {}, dataconfig: dict = {}) -> None:
         super().__init__()
         self._setup = setup
@@ -602,6 +605,7 @@ class HP6032A(Instrument):
         else:
             raise KeyError("misura non disponibile\nSeleziona tra"
                            " 'current' o 'voltage'")
+
     # ----- all COMMAND -----#
     COMMAND = ["set_output", "set_current", "set_voltage"]
 
@@ -610,6 +614,7 @@ class MSO58B(Instrument):  # VERIFY try this instrument
     typeOfInstrument = "Oscilloscope"
     manufactor = "Tektronik"
     measure = None  # NEW FEATURE measure options
+
     # SOCKET port is 4000
 
     # ACTONEVent:MASKFail:ACTION:SAVEIMAGe:STATE Save a screen capture when a
@@ -729,13 +734,14 @@ class MSO58B(Instrument):  # VERIFY try this instrument
     COMMAND = ["save_screen", "save_zoom"]
 
 
-class SORENSEN(Instrument): # VERIFY try this instrument
+class SORENSEN(Instrument):  # VERIFY try this instrument
     typeOfInstrument = "Power Supply"
     manufactor = "AMETEK - Programmable power"
     port = 9221
-    UserID="admin"
-    Password="password"
-    # <boolean> 
+    UserID = "admin"
+    Password = "password"
+
+    # <boolean>
     # “ON” or 1. “OFF” or 0. 
     # <NR1> 
     # The data format <NR1> is defined in IEEE 488.2 for integers. 
@@ -746,7 +752,7 @@ class SORENSEN(Instrument): # VERIFY try this instrument
     # values are some examples of valid data. 
     # <string>
     # Characters enclosed by single or double quotes. 
-    
+
     # Voltage “VOLTS” or “volts”, “V” or “v”, “MV” or “mv” or “mV” 
     # Current “AMPS” or “amps”, “A” or “a”, “MA” or “ma” or “mA” 
     # Time “SEC” or “sec”, “S” or “s”, “MS” or “ms”, “MIN” or “min” 
@@ -754,9 +760,11 @@ class SORENSEN(Instrument): # VERIFY try this instrument
 
     def __init__(self, setup: dict = {}, dataconfig: dict = {}):
         super().__init__()
+        self.fb_curr_status = None
         self._setup = setup
         self._dataconfig = dataconfig
-    
+        self._charger: Charger = None
+
     @property
     def setup(self):
         return self._setup_option
@@ -774,7 +782,7 @@ class SORENSEN(Instrument): # VERIFY try this instrument
     def dataconfig(self, value: dict):
         assert isinstance(value, dict)
         self._dataconfig = value
-        
+
     def set_terminator(self) -> str:
         """Setta carattere terminatore sia in scrittura che in lettura"""
         self._instrument.read_termination = "\n"
@@ -797,18 +805,27 @@ class SORENSEN(Instrument): # VERIFY try this instrument
         # self.set_data_configuration(self.dataconfig)
 
     # ----- function SORENSEN ----- #
+    @property
+    def charger(self):
+        return self._charger
+
+    @charger.setter
+    def charger(self, value: Charger):
+        assert isinstance(value, Charger)
+        self._charger = value
+
     def set_current(self, value: float | None = None, time_to_set: int | None = None):
         match value, time_to_set:
-            case None,_:
+            case None, _:
                 return self._instrument.query("SOUR:CURR?")
             case int() | float() as value, None:
                 return self._instrument.write(f"SOUR:CURR {value}")
             case int() | float() as value, int() as time_to_set:
                 return self._instrument.write(f"SOUR:CURR:RAMP {value}, {time_to_set}")
-            
+
     def set_voltage(self, value: float | None = None, time_to_set: int | None = None):
         match value, time_to_set:
-            case None,_:
+            case None, _:
                 return self._instrument.query("SOUR:VOLT?")
             case int() | float() as value, None:
                 return self._instrument.write(f"SOUR:VOLT {value}")
@@ -823,6 +840,50 @@ class SORENSEN(Instrument): # VERIFY try this instrument
                 state = 0
         self._instrument.write(f"OUTPUT:STATE {int(state)}")
 
+    def feedback_current(self, script: str):
+        if self.charger is None:
+            raise AttributeError("No charger implemented")
+        else:
+            _logger.debug("Launch Sorensen Current Feedback")
+            self.fb_curr_status = threading.Event()
+            self.fb_curr_status.set()
+            fb_curr = threading.Timer(60, self._fb_curr, [script])
+            fb_curr.start()
+
+    def stop_feedback(self):
+        self.fb_curr_status.clear()
+
+    def _fb_curr(self, script: str, fb_curr_status: threading.Event):
+        if not self.fb_curr_status.is_set():
+            return
+        def parse_command(command: str):
+            """Parse command for ARMxl"""
+            base_cmd = "./"
+            return base_cmd + command
+
+        def cast_to_float(value: str) -> float:
+            try:
+                return float(value)
+            except (ValueError, TypeError):
+                return float("NaN")
+
+        _logger.debug("Checking Charger")
+        cmd = parse_command(script)
+        output = self.charger.command(cmd).split("\n")
+        try:
+            mydict = {rows[0]: cast_to_float(rows[1]) for rows in output}
+            if 1:
+                pass  # TODO algoritmo output
+                _logger.info("Too Hot. Stopping Sorensen Output")
+            else:
+                _logger.debug("Launch Sorensen Current Feedback")
+                fb_curr = threading.Timer(60, self._fb_curr, script)
+                fb_curr.start()
+        except Exception:
+            _logger.warning("Fail to feedback. Setting output to 0")
+            self.set_output("off")
+
+
     # ----- predefine SORENSEN ----- #
     # ----- status and reading ----- #
     def read_measure(self, mode: Literal["current", "voltage"]):
@@ -833,23 +894,22 @@ class SORENSEN(Instrument): # VERIFY try this instrument
         else:
             raise KeyError("misura non disponibile\nSeleziona tra"
                            " 'current' o 'voltage'")
-    # ----- all COMMAND -----#
-    COMMAND = ["set_output", "set_current", "set_voltage"]
 
+    # ----- all COMMAND -----#
+    COMMAND = ["set_output", "set_current", "set_voltage", "feedback_current", "stop_feedback"]
 
 
 instrument: dict[str, Union[Type[ITECH],
-                            Type[CHROMA],
-                            Type[HP6032A],
-                            Type[MSO58B],
-                            Type[SORENSEN]]] = {
-                                                "ITECH": ITECH,
-                                                "CHROMA": CHROMA,
-                                                "HP6032A": HP6032A,
-                                                "MSO58B": MSO58B,
-                                                "SORENSEN": SORENSEN
-                                                }
-
+Type[CHROMA],
+Type[HP6032A],
+Type[MSO58B],
+Type[SORENSEN]]] = {
+    "ITECH": ITECH,
+    "CHROMA": CHROMA,
+    "HP6032A": HP6032A,
+    "MSO58B": MSO58B,
+    "SORENSEN": SORENSEN
+}
 
 # if __name__ == "__main__":
 #     osc = MSO58B()

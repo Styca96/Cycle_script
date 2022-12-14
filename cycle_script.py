@@ -422,6 +422,9 @@ try:
                          pwd=pwd)
     else:
         arm_xl = None
+    # SORENSEN with ARM-XL
+    if sorensen and arm_xl:
+        sorensen.charger = arm_xl
 except socket.error as e:
     _logger.exception("SSH connection Error")
     messagebox.showerror(message=e)
@@ -434,6 +437,7 @@ except Exception as e:
     _logger.exception("Connection Error")
     messagebox.showerror(message=e)
     raise e
+
 _logger.info("All items connected")
 
 instruments = {

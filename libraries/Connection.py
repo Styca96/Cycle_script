@@ -183,7 +183,8 @@ ARES_COMMAND =  {  # command save on ARES and minimum parameter needed # FIXME f
     "stop_charge_session.sh": 0,
     "set_power.sh": 1,
     "set_reactive.sh": 1,
-    "force_fan.sh": 1
+    "force_fan.sh": 1,
+    "alarm_reset.sh": 0
     }
 
 if __name__ == "__main__":

@@ -6,9 +6,9 @@ from tkinter import messagebox
 import pandas as pd
 import yaml
 
-from .Chamber import ACS_Discovery1200
-from .Connection import ARES_COMMAND
-from .other_SCPI import CHROMA, HP6032A, ITECH, MSO58B, SORENSEN
+from Chamber import ACS_Discovery1200
+from Connection import ARES_COMMAND
+from other_SCPI import CHROMA, HP6032A, ITECH, MSO58B, SORENSEN
 
 USER_SEQUENCE_DIR = (f"{path.dirname(path.abspath(__package__))}"
                      "/predefine_sequence/")

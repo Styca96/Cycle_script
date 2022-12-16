@@ -856,33 +856,26 @@ class SORENSEN(Instrument):  # VERIFY try this instrument
     def _fb_curr(self, script: str, fb_curr_status: threading.Event):
         if not self.fb_curr_status.is_set():
             return
+
         def parse_command(command: str):
             """Parse command for ARMxl"""
             base_cmd = "./"
             return base_cmd + command
 
-        def cast_to_float(value: str) -> float:
-            try:
-                return float(value)
-            except (ValueError, TypeError):
-                return float("NaN")
-
         _logger.debug("Checking Charger")
         cmd = parse_command(script)
         output = self.charger.command(cmd).split("\n")
         try:
-            mydict = {rows[0]: cast_to_float(rows[1]) for rows in output}
-            if 1:
-                pass  # TODO algoritmo output
-                _logger.info("Too Hot. Stopping Sorensen Output")
+            if output == 1:
+                _logger.warning("Too Hot. Stopping Sorensen Output")
+                self.set_output("off")
             else:
                 _logger.debug("Launch Sorensen Current Feedback")
                 fb_curr = threading.Timer(60, self._fb_curr, script)
                 fb_curr.start()
         except Exception:
-            _logger.warning("Fail to feedback. Setting output to 0")
+            _logger.warning("Fail to feedback. Stopping Sorensen Output")
             self.set_output("off")
-
 
     # ----- predefine SORENSEN ----- #
     # ----- status and reading ----- #
@@ -899,11 +892,13 @@ class SORENSEN(Instrument):  # VERIFY try this instrument
     COMMAND = ["set_output", "set_current", "set_voltage", "feedback_current", "stop_feedback"]
 
 
-instrument: dict[str, Union[Type[ITECH],
-Type[CHROMA],
-Type[HP6032A],
-Type[MSO58B],
-Type[SORENSEN]]] = {
+instrument: dict[str, Union[
+    Type[ITECH],
+    Type[CHROMA],
+    Type[HP6032A],
+    Type[MSO58B],
+    Type[SORENSEN]
+    ]] = {
     "ITECH": ITECH,
     "CHROMA": CHROMA,
     "HP6032A": HP6032A,

@@ -1,49 +1,32 @@
-address:
-  ITECH_ADDRESS: TCPIP0::192.168.0.102::30000::SOCKET
-  CHROMA_ADDRESS: TCPIP0::192.168.0.101::2101::SOCKET
-  CHAMBER_ADDRESS: COM3
-  HP6032A_ADDRESS: GPIB::5::INSTR
-  # SORENSEN_ADDRESS: TCPIP0::192.168.10.101::inst0::INSTR
-  # MSO58B_ADDRESS: TCPIP0::192.168.0.107::inst0::INSTR
-  ARM_XL_ADDRESS:
-    host: "192.168.0.103"
-    user: root
-    pwd: ABB
-
-command:
-  - Time: 2
-    Instrument: PowerSupply
-    Command: set_output
-    Argument: 'off'
-  - Time: 2
-    Instrument: PowerSupply
-    Command: set_current
-    Argument: '8'
-  - Time: 2
-    Instrument: PowerSupply
-    Command: set_voltage
-    Argument: '24'
-  - Time: 5
-    Instrument: PowerSupply
-    Command: set_output
-    Argument: 'on'
-  - Time: 5
-    Instrument: ARMxl
-    Command: stop_charge_session.sh
-    Argument: '-'
-  - Time: 5
-    Instrument: PowerSupply
-    Command: set_output
-    Argument: 'off'
-  - Time: 3
-    Instrument: AC_source
-    Command: set_output
-    Argument: 'off'
-  - Time: 3
-    Instrument: DC_source
-    Command: set_output
-    Argument: 'off'
-  - Time: 3
-    Instrument: CLIM_chamber
-    Command: write_setpoint
-    Argument: Temp 25
+- Time: 2
+  Instrument: PowerSupply
+  Command: set_current
+  Argument: '8'
+- Time: 2
+  Instrument: PowerSupply
+  Command: set_voltage
+  Argument: '24'
+- Time: 5
+  Instrument: PowerSupply
+  Command: set_output
+  Argument: 'on'
+- Time: 5
+  Instrument: ARMxl
+  Command: stop_charge_session.sh
+  Argument: '-'
+- Time: 5
+  Instrument: PowerSupply
+  Command: set_output
+  Argument: 'off'
+- Time: 3
+  Instrument: AC_source
+  Command: set_output
+  Argument: 'off'
+- Time: 3
+  Instrument: DC_source
+  Command: set_output
+  Argument: 'off'
+- Time: 3
+  Instrument: CLIM_chamber
+  Command: write_setpoint
+  Argument: Temp 25
